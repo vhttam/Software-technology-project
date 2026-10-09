@@ -47,8 +47,16 @@ jobs:
         run: bash ./mvnw -B -f narration-service/pom.xml clean verify
 
       - name: Set up Docker Buildx
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/setup-buildx-action@v3
+
+      - name: Validate Docker image build
+        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.narration-service
+          push: false
+          tags: narration-service:verify
 
       - name: Log in to GitHub Container Registry
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
