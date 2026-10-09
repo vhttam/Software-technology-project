@@ -1,0 +1,5 @@
+**/target/
+.env
+infrastructure/keys/*.pem
+infrastructure/keys/*.key
+infrastructure/systemd/*.env

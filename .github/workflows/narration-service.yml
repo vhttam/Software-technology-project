@@ -1,0 +1,116 @@
+name: narration-service
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "narration-service/**"
+      - ".mvn/**"
+      - "mvnw"
+      - "mvnw.cmd"
+      - "infrastructure/sql/create-narration-db.sql"
+      - "infrastructure/systemd/sgu-narration-service.service"
+      - "infrastructure/systemd/narration-service.env.example"
+      - "docs/api-contracts.md"
+      - ".github/workflows/narration-service.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "narration-service/**"
+      - ".mvn/**"
+      - "mvnw"
+      - "mvnw.cmd"
+      - "infrastructure/sql/create-narration-db.sql"
+      - "infrastructure/systemd/sgu-narration-service.service"
+      - "infrastructure/systemd/narration-service.env.example"
+      - "docs/api-contracts.md"
+      - ".github/workflows/narration-service.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Build and test
+        run: bash ./mvnw -B -f narration-service/pom.xml clean verify
+
+      - name: Deploy JAR to Staging (manual run on main only)
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${STAGING_HOST:?Missing repository secret STAGING_HOST}"
+          : "${STAGING_USER:?Missing repository secret STAGING_USER}"
+          : "${STAGING_SSH_KEY:?Missing repository secret STAGING_SSH_KEY}"
+          : "${STAGING_KNOWN_HOSTS:?Missing repository secret STAGING_KNOWN_HOSTS}"
+
+          install -d -m 700 "$HOME/.ssh"
+          key_file="$RUNNER_TEMP/staging_deploy_key"
+          printf '%s\n' "$STAGING_SSH_KEY" > "$key_file"
+          chmod 600 "$key_file"
+          printf '%s\n' "$STAGING_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh_args=(-i "$key_file" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+
+          ssh "${ssh_args[@]}" "$STAGING_USER@$STAGING_HOST" \
+            "mkdir -p /opt/sgu/narration-service/incoming /opt/sgu/narration-service/releases"
+          release_id="${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}"
+          scp "${ssh_args[@]}" narration-service/target/narration-service-0.1.0.jar \
+            "$STAGING_USER@$STAGING_HOST:/opt/sgu/narration-service/incoming/${release_id}.jar"
+          ssh "${ssh_args[@]}" "$STAGING_USER@$STAGING_HOST" "bash -s -- ${release_id}" <<'REMOTE'
+          set -euo pipefail
+          sha="$1"
+          [[ "$sha" =~ ^[a-f0-9]{40}-[0-9]+$ ]]
+          app_dir=/opt/sgu/narration-service
+          incoming="$app_dir/incoming/$sha.jar"
+          release="$app_dir/releases/$sha.jar"
+          current="$app_dir/current.jar"
+          unit=sgu-narration-service.service
+          health_url=http://127.0.0.1:8082/actuator/health
+          previous="$(readlink -f "$current" 2>/dev/null || true)"
+
+          test -s "$incoming"
+          mv -f "$incoming" "$release"
+          ln -sfn "$release" "$current"
+          rollback() {
+            if [[ -n "$previous" && -s "$previous" ]]; then
+              ln -sfn "$previous" "$current"
+              sudo -n systemctl restart "$unit" || true
+            else
+              sudo -n systemctl stop "$unit" || true
+              rm -f "$current"
+            fi
+          }
+
+          if ! sudo -n systemctl restart "$unit"; then
+            rollback
+            sudo -n journalctl -u "$unit" -n 100 --no-pager || true
+            exit 1
+          fi
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent "$health_url" >/dev/null; then
+              find "$app_dir/releases" -maxdepth 1 -type f -name '*.jar' -printf '%T@ %p\n' \
+                | sort -nr | awk 'NR > 10 {sub(/^[^ ]+ /, ""); print}' | xargs -r rm -f --
+              echo "Narration Service is healthy."
+              exit 0
+            fi
+            sleep 2
+          done
+          rollback
+          sudo -n journalctl -u "$unit" -n 100 --no-pager || true
+          exit 1
+          REMOTE
