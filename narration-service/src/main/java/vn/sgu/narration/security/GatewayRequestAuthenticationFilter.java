@@ -20,7 +20,7 @@ public class GatewayRequestAuthenticationFilter extends OncePerRequestFilter {
     private final byte[] expectedToken;
     private final ObjectMapper objectMapper;
 
-    public GatewayRequestAuthenticationFilter(@Value("${app.downstream.internal-token}") String gatewayToken,
+    public GatewayRequestAuthenticationFilter(@Value("${app.downstream.gateway-service-token}") String gatewayToken,
                                               ObjectMapper objectMapper) {
         this.expectedToken = gatewayToken.getBytes(StandardCharsets.UTF_8);
         this.objectMapper = objectMapper;
@@ -28,13 +28,14 @@ public class GatewayRequestAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getRequestURI().startsWith("/actuator/");
+        String path = request.getRequestURI();
+        return "/health".equals(path) || path.startsWith("/actuator/");
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String token = request.getHeader("X-Gateway-Service-Token");
+        String token = request.getHeader("X-Service-Token");
         if (token == null || !MessageDigest.isEqual(expectedToken, token.getBytes(StandardCharsets.UTF_8))) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);

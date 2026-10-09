@@ -16,7 +16,7 @@ class NarrationDependenciesMockTest {
     @Test
     void mocksContentVoiceTranslationAndSignedUrlDependencies() {
         assertThat(dependencies.validateContentForJob("content-1", "corr-1"))
-                .isEqualTo(new Contracts.ContentCheck("content-1", 3, false));
+                .isEqualTo(new Contracts.ContentCheck("content-1", 3, "vi"));
         assertThat(dependencies.voices("corr-1").supportedVoices())
                 .anySatisfy(group -> assertThat(group.lang()).isEqualTo("en"));
         assertThat(dependencies.translation("tr-1", "content-1", 3, "vi", "corr-1"))
@@ -28,12 +28,16 @@ class NarrationDependenciesMockTest {
     }
 
     @Test
-    void mockContentPreservesMissingAndDeletedSemantics() {
+    void mockContentReturnsNotFoundForMissingAndSoftDeletedContent() {
         assertThatThrownBy(() -> dependencies.validateContentForJob("missing-content", "corr-1"))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.status()).isEqualTo(HttpStatus.NOT_FOUND);
                     assertThat(ex.errorCode()).isEqualTo("CONTENT_NOT_FOUND");
                 });
-        assertThat(dependencies.validateContentForJob("deleted-content", "corr-1").isDeleted()).isTrue();
+        assertThatThrownBy(() -> dependencies.validateContentForJob("deleted-content", "corr-1"))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.status()).isEqualTo(HttpStatus.NOT_FOUND);
+                    assertThat(ex.errorCode()).isEqualTo("CONTENT_NOT_FOUND");
+                });
     }
 }

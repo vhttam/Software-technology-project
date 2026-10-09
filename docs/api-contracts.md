@@ -1,33 +1,50 @@
-# API và Event Contracts — V1.2
+# API và Event Contracts — V1.3
 
-Tài liệu này định nghĩa hợp đồng REST và RabbitMQ cho hệ thống thuyết minh tự động đa ngôn ngữ. Các quy tắc nghiệp vụ và máy trạng thái phải khớp với v2.5. API và event dùng camelCase; tên cột database dùng snake_case.
+Tài liệu định nghĩa hợp đồng REST và RabbitMQ cho hệ thống thuyết minh đa ngôn ngữ. Các quy tắc nghiệp vụ và máy trạng thái phải khớp với UC v2.6 sau khi áp dụng các chỉnh sửa được đề xuất. API và event dùng camelCase; tên cột database dùng snake_case.
+
+## Lịch sử thay đổi V1.3
+
+- A1: Bỏ nội dung CI/CD khỏi hợp đồng API/event; quy trình CI/CD thuộc UC6 và phụ lục UC, không thuộc hợp đồng giao tiếp.
+- A2: Bổ sung API khách duyệt POI, phân trang/tìm tên, giải mã QR thành poiId và lấy narration theo poiId; bổ sung các truy vấn nội bộ tối thiểu để Gateway lấy danh sách và nội dung hoạt động theo poiId.
+- A3: Định nghĩa SSE cho client, xác thực bằng access token trong query, callback nội bộ theo jobId và một header X-Service-Token với secret riêng theo service gọi.
+- A4: Làm rõ retryOfJobId hợp lệ bỏ qua ACTIVE_JOB_EXISTS; job cũ tiếp tục chạy; tái sử dụng bản dịch/audio; version hiện hành đổi trả CONTENT_VERSION_CHANGED.
+- A5: Đổi kiểm tra content cho job thành GET /internal/contents/{contentId}/current; trả 404 CONTENT_NOT_FOUND nếu không tồn tại/đã xóa mềm; response bỏ isDeleted.
+- A6: Nêu rõ Idempotency-Key bắt buộc và lỗi 400 IDEMPOTENCY_KEY_REQUIRED khi thiếu.
+- B7: correlationId của narration.cancelled chỉ nằm trong metadata header, không nằm trong dữ liệu chính/payload.
+- B8: Bổ sung CURRENT_PASSWORD_INVALID, USER_NOT_FOUND và POI_NOT_FOUND cho các thao tác đã nêu.
+- B9: Bổ sung JWKS endpoint; JWT chứa kid tương ứng.
+- B10: Bổ sung GET /api/v1/contents/{contentId} để đọc đầy đủ textContent của version hiện hành.
+- B11: Bổ sung GET /api/v1/languages/source để lấy danh sách ngôn ngữ nguồn được hỗ trợ.
+- B12: Chuẩn hóa đường dẫn API công khai dưới /api/v1 và API nội bộ dưới /internal.
+- B13: Chuẩn hóa retry thành tối đa 3 lần retry sau lần gọi đầu, tổng tối đa 4 lần gọi.
+- B14: Lỗi 404 NARRATION_NOT_FOUND kèm details.availableLangs.
 
 ## 1. Quy ước chung
 
 ### 1.1. Base URL và headers
 
-- Base URL: `/api/v1`.
-- API cần xác thực nhận `Authorization: Bearer <accessToken>`.
-- API Gateway sinh `X-Correlation-ID` cho mỗi request đầu vào rồi forward ID đó qua HTTP và message headers. Client không cần tự sinh header; Gateway là nơi xác lập ID truy vết tin cậy.
-- Với request đã xác thực, Gateway chuyển `userId` và `role` tới service nội bộ qua header tin cậy (ví dụ `X-User-Id`, `X-User-Role`). Service phía sau chỉ nhận request từ Gateway; không dùng giá trị do client tự gửi để phân quyền hoặc ghi `createdBy`.
-- Client có thể gửi `Idempotency-Key` khi tạo job. Header này bắt buộc với `POST /jobs`.
-- API nội bộ chỉ cho service được xác thực gọi; không công khai trực tiếp ra Internet. Triển khai này dùng `X-Service-Token` cho lời gọi nội bộ tới Content, Translation và TTS; Gateway dùng `X-Gateway-Service-Token` khi gọi Narration Service và callback tiến độ dùng `X-Internal-Token`. Các token lấy từ secret cấu hình, không nhận từ client.
-- Endpoint đăng nhập và các endpoint `/client` không yêu cầu access token.
+- Mọi API công khai có tiền tố /api/v1; mọi API nội bộ có tiền tố /internal.
+- API cần xác thực nhận Authorization: Bearer <accessToken>. Ngoại lệ không cần access token: đăng nhập, làm mới token, JWKS và các API khách tham quan /api/v1/client/**.
+- API Gateway sinh X-Correlation-ID cho mỗi request đầu vào rồi forward ID đó qua HTTP và message headers. Client không cần tự sinh header; Gateway là nơi xác lập ID truy vết tin cậy.
+- Với request đã xác thực, Gateway chuyển userId và role tới service nội bộ qua header tin cậy X-User-Id và X-User-Role. Service phía sau chỉ nhận request từ Gateway; không dùng giá trị do client tự gửi để phân quyền hoặc ghi createdBy.
+- Idempotency-Key bắt buộc với POST /api/v1/jobs. Thiếu header trả 400 IDEMPOTENCY_KEY_REQUIRED.
+- Mọi lời gọi REST nội bộ dùng duy nhất header X-Service-Token. Giá trị là secret riêng cho từng service gọi; không dùng một secret chung cho mọi caller và không nhận token từ client. Service nhận kiểm tra secret tương ứng với service gọi.
+- Endpoint quản trị cần role CONTENT_ADMIN. Các API khách tham quan và JWKS công khai không yêu cầu đăng nhập.
 
 ### 1.2. Response envelope
 
 Response thành công dùng envelope:
 
-```json
+~~~json
 {
   "status": "success",
   "data": {}
 }
-```
+~~~
 
-Response lỗi dùng envelope tùy biến thống nhất:
+Response lỗi dùng envelope:
 
-```json
+~~~json
 {
   "status": "error",
   "errorCode": "VALIDATION_ERROR",
@@ -35,43 +52,43 @@ Response lỗi dùng envelope tùy biến thống nhất:
   "details": {},
   "correlationId": "c4f7..."
 }
-```
+~~~
 
-`details` có thể là `null`; lỗi validation có thể trả danh sách lỗi theo trường. HTTP status là nguồn xác định loại lỗi; `errorCode` là mã ổn định để client xử lý. Envelope này là quy ước của hệ thống, không gọi là JSend chuẩn.
+details có thể là null; lỗi validation có thể trả danh sách lỗi theo trường. HTTP status là nguồn xác định loại lỗi; errorCode là mã ổn định để client xử lý. Envelope này là quy ước của hệ thống, không gọi là JSend chuẩn. Mã lỗi dùng UPPER_SNAKE_CASE.
 
 ### 1.3. HTTP status dùng chung
 
-- `200 OK`: đọc hoặc cập nhật thành công.
-- `201 Created`: tạo tài nguyên đồng bộ.
-- `202 Accepted`: đã nhận yêu cầu xử lý bất đồng bộ.
-- `204 No Content`: xóa thành công, không có response body.
-- `400 Bad Request`: dữ liệu đầu vào sai.
-- `401 Unauthorized`: thiếu hoặc token không hợp lệ/hết hạn.
-- `403 Forbidden`: không đủ vai trò.
-- `404 Not Found`: không tìm thấy tài nguyên.
-- `409 Conflict`: xung đột trạng thái, version, khóa duy nhất hoặc idempotency key.
-- `503 Service Unavailable`: service phụ thuộc tạm thời không khả dụng.
+- 200 OK: đọc hoặc cập nhật thành công.
+- 201 Created: tạo tài nguyên đồng bộ.
+- 202 Accepted: đã nhận yêu cầu xử lý bất đồng bộ.
+- 204 No Content: xóa thành công, không có response body.
+- 400 Bad Request: dữ liệu đầu vào sai.
+- 401 Unauthorized: thiếu hoặc token không hợp lệ/hết hạn.
+- 403 Forbidden: không đủ vai trò.
+- 404 Not Found: không tìm thấy tài nguyên.
+- 409 Conflict: xung đột trạng thái, version, khóa duy nhất hoặc idempotency key.
+- 503 Service Unavailable: service phụ thuộc tạm thời không khả dụng.
 
-Ngày giờ dùng ISO 8601 UTC, ví dụ `2026-10-08T10:00:00Z`.
+Ngày giờ dùng ISO 8601 UTC, ví dụ 2026-10-08T10:00:00Z.
 
 ## 2. Auth Service
 
 ### 2.1. Đăng nhập
 
-`POST /auth/login` — không cần access token.
+POST /api/v1/auth/login — không cần access token.
 
 Request:
 
-```json
+~~~json
 {
   "username": "admin",
   "password": "password123"
 }
-```
+~~~
 
-Response `200`:
+Response 200:
 
-```json
+~~~json
 {
   "status": "success",
   "data": {
@@ -88,120 +105,165 @@ Response `200`:
     }
   }
 }
-```
+~~~
 
-Access token là JWT ký bằng private key; Gateway xác thực bằng public key. Access token có hiệu lực 15 phút, refresh token 7 ngày. Sau 5 lần đăng nhập sai liên tiếp, Auth Service khóa tài khoản trong 15 phút. Việc tăng `failedLoginCount` và khóa ở ngưỡng phải cập nhật nguyên tử. Trong thời gian khóa, đăng nhập bị từ chối kể cả khi mật khẩu đúng và không tăng bộ đếm. Bộ đếm được đặt lại về 0, đồng thời xóa `lockedUntil`, khi đăng nhập thành công, khi hết thời gian khóa hoặc khi được mở khóa thủ công.
+Access token là JWT ký bằng private key; JWT header có kid khớp với một khóa trong JWKS. Gateway xác thực bằng public key. Access token có hiệu lực 15 phút, refresh token 7 ngày. Sau 5 lần đăng nhập sai liên tiếp, Auth Service khóa tài khoản trong 15 phút. Việc tăng failedLoginCount và khóa ở ngưỡng phải cập nhật nguyên tử. Trong thời gian khóa, đăng nhập bị từ chối kể cả khi mật khẩu đúng và không tăng bộ đếm. Bộ đếm được đặt lại về 0, đồng thời xóa lockedUntil, khi đăng nhập thành công, khi hết thời gian khóa hoặc khi được mở khóa thủ công.
 
-Endpoint đăng nhập trả refresh token cho ứng dụng theo UC7. Endpoint làm mới nhận refresh token và trả access token mới; v2.5 không quy định xoay refresh token. Token gốc chỉ được trả trong luồng xác thực, không bao giờ trả giá trị hash đang lưu trong database. API quản lý tài khoản tuyệt đối không trả `refreshToken`, `passwordHash` hoặc `refreshTokenHash`.
+Endpoint đăng nhập trả refresh token cho ứng dụng theo UC7. Endpoint làm mới nhận refresh token và trả access token mới; v2.5 không quy định xoay refresh token. Token gốc chỉ được trả trong luồng xác thực, không bao giờ trả giá trị hash đang lưu trong database. API quản lý tài khoản tuyệt đối không trả refreshToken, passwordHash hoặc refreshTokenHash.
 
 Lỗi:
-- `401 INVALID_CREDENTIALS`: thông tin đăng nhập sai hoặc tài khoản đang bị khóa; message không tiết lộ tài khoản có tồn tại hay không.
-- `503 AUTH_SERVICE_UNAVAILABLE`.
+- 401 INVALID_CREDENTIALS: thông tin đăng nhập sai hoặc tài khoản đang bị khóa; message không tiết lộ tài khoản có tồn tại hay không.
+- 503 AUTH_SERVICE_UNAVAILABLE.
 
-### 2.2. Làm mới access token
+### 2.2. JWKS
 
-`POST /auth/refresh` — không cần access token.
+GET /api/v1/auth/.well-known/jwks.json — không cần access token. Gateway lấy public key từ endpoint này để xác thực chữ ký JWT và chọn khóa theo kid.
+
+Response 200:
+
+~~~json
+{
+  "keys": [
+    {
+      "kty": "RSA",
+      "use": "sig",
+      "alg": "RS256",
+      "kid": "key-2026-01",
+      "n": "base64url-modulus",
+      "e": "AQAB"
+    }
+  ]
+}
+~~~
+
+kid trong JWT header phải khớp với kid của khóa dùng để ký. JWKS không chứa private key.
+
+### 2.3. Làm mới access token
+
+POST /api/v1/auth/refresh — không cần access token.
 
 Request:
 
-```json
+~~~json
 {
   "refreshToken": "opaque-refresh-token"
 }
-```
+~~~
 
-Response `200`: trả `accessToken`, `tokenType`, `expiresIn`. Refresh token được lưu dạng hash. Token không hợp lệ, hết hạn hoặc đã thu hồi trả `401 INVALID_REFRESH_TOKEN`.
+Response 200 trả accessToken, tokenType và expiresIn. Refresh token được lưu dạng hash. Token không hợp lệ, hết hạn hoặc đã thu hồi trả 401 INVALID_REFRESH_TOKEN.
 
-### 2.3. Đăng xuất
+### 2.4. Đăng xuất
 
-`POST /auth/logout` — cần access token.
+POST /api/v1/auth/logout — cần access token.
 
 Request:
 
-```json
+~~~json
 {
   "refreshToken": "opaque-refresh-token"
 }
-```
+~~~
 
-Response `204`. Auth Service thu hồi refresh token; client xóa token cục bộ. Access JWT đã phát hành vẫn có hiệu lực tối đa đến lúc hết hạn (15 phút).
+Response 204. Auth Service thu hồi refresh token; client xóa token cục bộ. Access JWT đã phát hành vẫn có hiệu lực tối đa đến lúc hết hạn (15 phút).
 
-### 2.4. Tài khoản nội bộ
+### 2.5. Tài khoản nội bộ
 
-Các endpoint dưới đây cần `CONTENT_ADMIN`.
+Các endpoint dưới đây cần CONTENT_ADMIN.
 
-- `GET /auth/users?page=1&pageSize=20&query=admin&locked=true`: danh sách có phân trang; trường trả về gồm `userId`, `username`, `name`, `role`, `failedLoginCount`, `lockedUntil`, `createdAt`, `updatedAt`. Không trả `passwordHash` hoặc refresh token.
-- `POST /auth/users`: tạo tài khoản. `username` bắt buộc và phải đúng định dạng hệ thống; `name` bắt buộc; `role` hiện chỉ nhận `CONTENT_ADMIN`; mật khẩu tối thiểu 8 ký tự.
+- GET /api/v1/auth/users?page=1&pageSize=20&query=admin&locked=true: danh sách có phân trang; trường trả về gồm userId, username, name, role, failedLoginCount, lockedUntil, createdAt, updatedAt. Không trả passwordHash hoặc refresh token.
+- POST /api/v1/auth/users: tạo tài khoản. username bắt buộc và phải đúng định dạng hệ thống; name bắt buộc; role hiện chỉ nhận CONTENT_ADMIN; mật khẩu tối thiểu 8 ký tự.
 
 Request:
 
-```json
+~~~json
 {
   "username": "mod_01",
   "name": "Nguyen Van A",
   "password": "SecurePassword1!",
   "role": "CONTENT_ADMIN"
 }
-```
+~~~
 
-Response `201` trả thông tin tài khoản không nhạy cảm. Username trùng trả `409 USERNAME_EXISTS`.
+Response 201 trả thông tin tài khoản không nhạy cảm. Username trùng trả 409 USERNAME_EXISTS.
 
-- `PUT /auth/users/{userId}/password`: quản trị viên đặt mật khẩu mới. Body: `{"newPassword":"..."}`. Nếu người dùng tự đổi mật khẩu của mình, bắt buộc thêm `currentPassword`. Cập nhật password hash và thu hồi refresh token của tài khoản. Response `204`.
-- `PUT /auth/users/{userId}/unlock`: chỉ hợp lệ nếu tài khoản đang bị khóa. Đặt `failedLoginCount = 0`, `lockedUntil = null`. Response `200` với `{ "status":"success", "data":{"userId":"u-123","locked":false} }`. Không bị khóa trả `409 ACCOUNT_NOT_LOCKED`; không tồn tại trả `404 USER_NOT_FOUND`.
+- PUT /api/v1/auth/users/{userId}/password: quản trị viên đặt mật khẩu mới. Body: {"newPassword":"..."}. Nếu người dùng tự đổi mật khẩu của mình, bắt buộc thêm currentPassword. Cập nhật password hash và thu hồi refresh token của tài khoản. Response 204.
+  - Người dùng không tồn tại: 404 USER_NOT_FOUND.
+  - Mật khẩu hiện tại không đúng khi tự đổi: 400 CURRENT_PASSWORD_INVALID; không thay đổi dữ liệu.
+- PUT /api/v1/auth/users/{userId}/unlock: chỉ hợp lệ nếu tài khoản đang bị khóa. Đặt failedLoginCount = 0, lockedUntil = null. Response 200 với {"status":"success","data":{"userId":"u-123","locked":false}}. Không bị khóa trả 409 ACCOUNT_NOT_LOCKED; không tồn tại trả 404 USER_NOT_FOUND.
 
 ## 3. Content Service
 
-Các endpoint quản trị cần `CONTENT_ADMIN`.
+Các endpoint quản trị cần CONTENT_ADMIN.
 
-### 3.1. Điểm tham quan
+### 3.1. Ngôn ngữ nguồn
 
-- `GET /pois?page=1&pageSize=20&query=bao-tang`: danh sách phân trang.
-- `POST /pois` tạo điểm tham quan; request gồm `name` (bắt buộc, tối đa 255 ký tự) và `description` (tối đa 2.000 ký tự). Hệ thống tự sinh `poiId` (UUID) và `qrCode` duy nhất. Response `201` trả bản ghi vừa tạo.
-- `GET /pois/{poiId}` lấy chi tiết.
-- `PUT /pois/{poiId}` cập nhật `name` và `description`; giữ nguyên `poiId` và `qrCode`.
-- `DELETE /pois/{poiId}` xóa vật lý, response `204`. Nếu bất kỳ CONTENTS nào tham chiếu điểm này, kể cả nội dung đã xóa mềm, trả `409 POI_HAS_CONTENT`.
+GET /api/v1/languages/source — cần CONTENT_ADMIN. Trả danh sách mã ngôn ngữ nguồn được hỗ trợ theo BR-03.
 
-`qrCode` là chuỗi ngẫu nhiên khó đoán, duy nhất, dùng trong mã QR và được giữ nguyên khi cập nhật. Nếu sinh mã bị trùng, Content Service thử lại tối đa 3 lần; sau đó trả `500 QR_CODE_GENERATION_FAILED`.
+Response 200:
 
-### 3.2. Nội dung thuyết minh
+~~~json
+{
+  "status": "success",
+  "data": {
+    "languages": ["vi", "en", "fr"]
+  }
+}
+~~~
 
-Một nội dung có `contentId` ổn định và các version bất biến. Mỗi điểm tham quan chỉ có tối đa một nội dung chưa xóa mềm.
+### 3.2. Điểm tham quan
 
-- `POST /pois/{poiId}/contents` tạo nội dung đầu tiên. Request gồm `title`, `sourceLang`, `textContent`. Văn bản không được rỗng và tối đa 10.000 ký tự. Response `201` trả `contentId`, `version: 1` và dữ liệu đã lưu. Nếu đã có nội dung hoạt động cho POI này, trả `409 ACTIVE_CONTENT_EXISTS`.
-- `GET /contents?page=1&pageSize=20&query=bao-tang`: danh sách nội dung có phân trang và tìm kiếm để phục vụ UC1; có thể lọc theo POI. Mỗi mục trả thông tin POI, `contentId`, tiêu đề, ngôn ngữ nguồn, version hiện hành và trạng thái xóa mềm.
-- `GET /pois/{poiId}/contents/active` lấy nội dung hoạt động và version hiện hành (version lớn nhất).
-- `PUT /contents/{contentId}` tạo version mới, không ghi đè version cũ. Request phải có `baseVersion` cùng các trường nội dung cần cập nhật:
+- GET /api/v1/pois?page=1&pageSize=20&query=bao-tang: danh sách phân trang.
+- POST /api/v1/pois tạo điểm tham quan; request gồm name (bắt buộc, tối đa 255 ký tự) và description (tối đa 2.000 ký tự). Hệ thống tự sinh poiId (UUID) và qrCode duy nhất. Response 201 trả bản ghi vừa tạo.
+- GET /api/v1/pois/{poiId} lấy chi tiết.
+- PUT /api/v1/pois/{poiId} cập nhật name và description; giữ nguyên poiId và qrCode. POI không tồn tại trả 404 POI_NOT_FOUND.
+- DELETE /api/v1/pois/{poiId} xóa vật lý, response 204. POI không tồn tại trả 404 POI_NOT_FOUND. Nếu bất kỳ CONTENTS nào tham chiếu điểm này, kể cả nội dung đã xóa mềm, trả 409 POI_HAS_CONTENT.
 
-```json
+qrCode là chuỗi ngẫu nhiên khó đoán, duy nhất, dùng trong mã QR và được giữ nguyên khi cập nhật. Nếu sinh mã bị trùng, Content Service thử lại tối đa 3 lần; sau đó trả 500 QR_CODE_GENERATION_FAILED.
+
+### 3.3. Nội dung thuyết minh
+
+Một nội dung có contentId ổn định và các version bất biến. Mỗi điểm tham quan chỉ có tối đa một nội dung chưa xóa mềm.
+
+- POST /api/v1/pois/{poiId}/contents tạo nội dung đầu tiên. Request gồm title, sourceLang, textContent. Văn bản không được rỗng và tối đa 10.000 ký tự. Response 201 trả contentId, version: 1 và dữ liệu đã lưu. POI không tồn tại trả 404 POI_NOT_FOUND. Nếu đã có nội dung hoạt động cho POI này, trả 409 ACTIVE_CONTENT_EXISTS.
+- GET /api/v1/contents?page=1&pageSize=20&query=bao-tang: danh sách nội dung có phân trang và tìm kiếm để phục vụ UC1; có thể lọc theo POI. Mỗi mục trả thông tin POI, contentId, tiêu đề, ngôn ngữ nguồn, version hiện hành và trạng thái xóa mềm.
+- GET /api/v1/pois/{poiId}/contents/active lấy nội dung hoạt động và version hiện hành (version lớn nhất).
+- GET /api/v1/contents/{contentId} — cần CONTENT_ADMIN. Trả đầy đủ dữ liệu của version hiện hành, gồm contentId, version, title, sourceLang và textContent; dùng để nạp lại văn bản khi Actor sửa nội dung hoặc cần tải lại sau 409 CONTENT_VERSION_CONFLICT. Nội dung không tồn tại hoặc đã xóa mềm trả 404 CONTENT_NOT_FOUND.
+- PUT /api/v1/contents/{contentId} tạo version mới, không ghi đè version cũ. Request phải có baseVersion cùng các trường nội dung cần cập nhật:
+
+~~~json
 {
   "baseVersion": 3,
   "title": "Giới thiệu bảo tàng",
   "sourceLang": "vi",
   "textContent": "Chào mừng quý khách..."
 }
-```
+~~~
 
-`title` là bắt buộc; `sourceLang` phải thuộc danh sách ngôn ngữ nguồn được cấu hình; `textContent` không được rỗng và tối đa 10.000 ký tự. Khi tạo nội dung, Content Service lấy `createdBy` từ danh tính nội bộ do Gateway chuyển tiếp, không nhận trường này từ client. Chỉ chấp nhận cập nhật nếu `baseVersion` bằng version hiện hành; version mới bằng `baseVersion + 1`. Nếu đã có người lưu trước hoặc hai lần lưu đồng thời tranh cùng version, trả `409 CONTENT_VERSION_CONFLICT` kèm `currentVersion`; không tự tăng version thay client và không ghi đè phiên bản cũ.
+title là bắt buộc; sourceLang phải thuộc danh sách ngôn ngữ nguồn được cấu hình; textContent không được rỗng và tối đa 10.000 ký tự. Khi tạo nội dung, Content Service lấy createdBy từ danh tính nội bộ do Gateway chuyển tiếp, không nhận trường này từ client. Chỉ chấp nhận cập nhật nếu baseVersion bằng version hiện hành; version mới bằng baseVersion + 1. Nếu đã có người lưu trước hoặc hai lần lưu đồng thời tranh cùng version, trả 409 CONTENT_VERSION_CONFLICT kèm currentVersion; không tự tăng version thay client và không ghi đè phiên bản cũ.
 
-- `DELETE /contents/{contentId}` xóa mềm toàn bộ nội dung, response `204`. Nội dung bị xóa mềm không hiển thị cho khách và không nhận job mới. Job đang chạy vẫn có thể đọc đúng version đã chốt.
+- DELETE /api/v1/contents/{contentId} xóa mềm toàn bộ nội dung, response 204. Nội dung bị xóa mềm không hiển thị cho khách và không nhận job mới. Job đang chạy vẫn có thể đọc đúng version đã chốt.
 
-Content Service phát `content.updated` khi tạo version và `content.deleted` khi xóa mềm. Theo khuyến nghị BR-17, nếu triển khai Transactional Outbox thì thay đổi dữ liệu và bản ghi outbox được ghi trong cùng transaction; relay chỉ đánh dấu sự kiện đã gửi sau publisher confirm. Outbox là biện pháp khuyến nghị trong v2.5; timeout ở Narration Service vẫn phải xử lý trường hợp sự kiện không đến.
+Content Service phát content.updated khi tạo version và content.deleted khi xóa mềm. Theo khuyến nghị BR-17, nếu triển khai Transactional Outbox thì thay đổi dữ liệu và bản ghi outbox được ghi trong cùng transaction; relay chỉ đánh dấu sự kiện đã gửi sau publisher confirm. Outbox là biện pháp khuyến nghị trong v2.5; timeout ở Narration Service vẫn phải xử lý trường hợp sự kiện không đến.
 
-### 3.3. API nội bộ đọc version
+### 3.4. API nội bộ đọc nội dung
 
-`GET /internal/contents/{contentId}/versions/{version}` — chỉ service nội bộ được gọi. Trả `contentId`, `version`, `title`, `sourceLang`, `textContent`, `isDeleted`. API này vẫn trả nội dung của version được yêu cầu nếu nội dung bị xóa mềm sau khi job được tạo. Không dùng endpoint này để tạo job mới.
+GET /internal/contents/{contentId}/versions/{version} — chỉ service nội bộ được gọi. Trả contentId, version, title, sourceLang, textContent và isDeleted. API này vẫn trả nội dung của version được yêu cầu nếu nội dung bị xóa mềm sau khi job được tạo. Không dùng endpoint này để tạo job mới.
 
-`POST /internal/contents/for-job` — chỉ Narration Service gọi để kiểm tra trước khi tạo job. Request gồm `contentId`; response trả version hiện hành và cờ `isDeleted`. Nội dung không tồn tại hoặc đã xóa mềm không đủ điều kiện tạo job. Đây là kiểm tra riêng với API đọc version bất biến ở trên.
+GET /internal/contents/{contentId}/current — chỉ Narration Service gọi để kiểm tra trước khi tạo job. Khi nội dung hiện hành tồn tại và chưa bị xóa mềm, response trả contentId, version và sourceLang; không trả isDeleted. Nội dung không tồn tại hoặc đã xóa mềm trả 404 CONTENT_NOT_FOUND. Nếu Content Service không phản hồi hoặc lỗi 5xx, Narration Service trả 503 CONTENT_SERVICE_UNAVAILABLE. Không tạo job khi kiểm tra thất bại.
 
-`GET /internal/pois/by-qr/{qrCode}` — chỉ service nội bộ được gọi. Dùng cho UC5 để tra điểm tham quan theo mã QR và xác nhận nội dung đang hoạt động; response gồm `poiId`, `poiName`, `contentId`, `contentTitle`, `isDeleted`. POI hoặc nội dung không tồn tại/đã xóa mềm trả `404`.
+GET /internal/pois?page=1&pageSize=20&query=bao-tang — chỉ API Gateway gọi để phục vụ GET /api/v1/client/pois. Trả items[] gồm poiId, poiName và description cùng page, pageSize, totalItems, totalPages; không trả qrCode. query tìm theo tên.
+
+GET /internal/pois/{poiId}/current — chỉ API Gateway gọi để lấy POI và nội dung đang hoạt động phục vụ UC5. Response gồm poiId, poiName, contentId và contentTitle. POI không tồn tại hoặc không có nội dung hoạt động trả 404 POI_NOT_FOUND.
+
+GET /internal/pois/by-qr/{qrCode} — chỉ service nội bộ được gọi để tra điểm tham quan theo mã QR và xác nhận nội dung đang hoạt động; response gồm poiId, poiName, contentId, contentTitle và isDeleted. POI hoặc nội dung không tồn tại/đã xóa mềm trả 404 POI_NOT_FOUND.
 
 ## 4. Narration Service và cổng khách
 
-### 4.1. Danh mục giọng đọc
+### 4.1. Danh mục giọng đọc và API phụ thuộc nội bộ
 
-`GET /internal/voices` — nội bộ. TTS Service cung cấp danh mục ngôn ngữ và voice hợp lệ.
+GET /internal/voices — nội bộ. TTS Service cung cấp danh mục ngôn ngữ và voice hợp lệ.
 
-```json
+~~~json
 {
   "status": "success",
   "data": {
@@ -210,21 +272,21 @@ Content Service phát `content.updated` khi tạo version và `content.deleted` 
     ]
   }
 }
-```
+~~~
 
-Cặp `lang`–`voiceId` phải hợp lệ theo danh mục này. Ngôn ngữ đích được phép trùng ngôn ngữ nguồn; khi đó Translation Service thực hiện pass-through.
+Cặp lang–voiceId phải hợp lệ theo danh mục này. Ngôn ngữ đích được phép trùng ngôn ngữ nguồn; khi đó Translation Service thực hiện pass-through.
 
-`GET /api/v1/voices` — API quản trị cần `CONTENT_ADMIN`; Narration Service đọc danh mục từ TTS Service rồi trả `supportedVoices` cho giao diện UC2.
+GET /api/v1/voices — cần CONTENT_ADMIN; Narration Service đọc danh mục từ TTS Service rồi trả supportedVoices cho giao diện UC2.
 
-Translation Service cung cấp `GET /internal/translations/{translationId}` cho Narration Service và TTS Service. Response gồm `translationId`, `contentId`, `version`, `lang` và `textContent`; nội dung này được dùng làm phụ đề và đầu vào tổng hợp giọng nói.
+Translation Service cung cấp GET /internal/translations/{translationId} cho Narration Service và TTS Service. Response gồm translationId, contentId, version, lang và textContent; nội dung này được dùng làm phụ đề và đầu vào tổng hợp giọng nói.
 
-TTS Service cung cấp `GET /internal/audios/{audioId}/signed-url` cho Narration Service. Response gồm `audioUrl` và `expiresAt`; URL hết hạn sau một giờ. Database chỉ lưu `objectKey`, không lưu URL có chữ ký.
+TTS Service cung cấp GET /internal/audios/{audioId}/signed-url cho Narration Service. Response gồm audioUrl và expiresAt; URL hết hạn sau một giờ. Database chỉ lưu objectKey, không lưu URL có chữ ký.
 
 ### 4.2. Tạo job
 
-`POST /jobs` — cần `CONTENT_ADMIN` và `Idempotency-Key`.
+POST /api/v1/jobs — cần CONTENT_ADMIN và Idempotency-Key.
 
-```json
+~~~json
 {
   "contentId": "c-888",
   "retryOfJobId": "j-previous",
@@ -233,13 +295,13 @@ TTS Service cung cấp `GET /internal/audios/{audioId}/signed-url` cho Narration
     { "lang": "fr", "voiceId": "fr-FR-Standard-A" }
   ]
 }
-```
+~~~
 
-Client không gửi version: Narration Service xác nhận nội dung chưa bị xóa mềm và lấy version hiện hành từ Content Service; job lưu cố định version đó. Mỗi `lang` chỉ xuất hiện một lần trong `targets` và phải có đúng một `voiceId` tương ứng. Kiểm tra job trùng và tạo job diễn ra trong cùng transaction, có khóa theo `(contentId, version)`, để hai request đồng thời không cùng vượt qua bước kiểm tra.
+Client không gửi version: Narration Service gọi GET /internal/contents/{contentId}/current để xác nhận nội dung tồn tại, chưa bị xóa mềm và lấy version hiện hành; job lưu cố định version đó. Mỗi lang chỉ xuất hiện một lần trong targets và có đúng một voiceId tương ứng. Kiểm tra job trùng và tạo job diễn ra trong cùng transaction, có khóa theo (contentId, version), để hai request đồng thời không cùng vượt qua bước kiểm tra.
 
-Response `202`:
+Response 202:
 
-```json
+~~~json
 {
   "status": "success",
   "data": {
@@ -254,47 +316,69 @@ Response `202`:
     ]
   }
 }
-```
+~~~
 
-Job có thể chuyển sang `PROCESSING` ngay sau response. Cùng Idempotency-Key và cùng request trả lại job đã tạo; cùng key nhưng payload khác trả `409 IDEMPOTENCY_KEY_REUSED`. Khóa có phạm vi theo user và operation, được giữ ít nhất đến 24 giờ sau khi job kết thúc.
+Job có thể chuyển sang PROCESSING ngay sau response. Cùng Idempotency-Key và cùng request trả lại job đã tạo; cùng key nhưng payload khác trả 409 IDEMPOTENCY_KEY_REUSED. Key có phạm vi theo user và operation, được giữ ít nhất đến 24 giờ sau khi job kết thúc.
 
-`retryOfJobId` là trường tùy chọn, chỉ dùng cho luồng “Tạo lại”. Nếu có job PENDING/PROCESSING cho cùng nội dung, version và ngôn ngữ, mặc định trả `409 ACTIVE_JOB_EXISTS` kèm `jobId`. Sau khi Actor xác nhận, client gửi request mới với Idempotency-Key mới và `retryOfJobId` trỏ tới job xung đột. Narration Service chỉ chấp nhận nếu job tham chiếu cùng nội dung/version; các bản dịch và audio đã có được dùng lại theo khóa `(contentId, version, lang)` và `(translationId, voiceId)`. Nếu version hiện hành đã đổi, trả `409 CONTENT_VERSION_CHANGED`; Actor phải tạo job cho version hiện hành.
+Nếu có job PENDING/PROCESSING cho cùng contentId, version và ngôn ngữ, request không có retryOfJobId hợp lệ trả 409 ACTIVE_JOB_EXISTS kèm jobId của job xung đột. Khi Actor xác nhận tạo lại, client gửi request mới với Idempotency-Key mới và retryOfJobId tham chiếu job xung đột. retryOfJobId hợp lệ khi job tham chiếu tồn tại, cùng contentId/version và có các ngôn ngữ được yêu cầu. Request hợp lệ bỏ qua kiểm tra ACTIVE_JOB_EXISTS cho các target tương ứng. Job cũ không bị hủy tự động và tiếp tục chạy. Job mới dùng lại bản dịch theo khóa (contentId, version, lang) và audio theo khóa (translationId, voiceId); chỉ thành phần chưa có hoặc lần xử lý trước thất bại mới cần xử lý lại. Nếu version hiện hành đã đổi so với version của job tham chiếu, trả 409 CONTENT_VERSION_CHANGED; Actor phải tạo job cho version hiện hành.
 
 Lỗi tạo job:
-- `400 INVALID_TARGETS`: target rỗng/trùng, ngôn ngữ hoặc voice không hợp lệ.
-- `404 CONTENT_NOT_FOUND`: nội dung không tồn tại hoặc đã xóa mềm.
-- `503 CONTENT_SERVICE_UNAVAILABLE`.
+- 400 IDEMPOTENCY_KEY_REQUIRED: thiếu Idempotency-Key.
+- 400 INVALID_TARGETS: target rỗng/trùng, ngôn ngữ hoặc voice không hợp lệ.
+- 404 CONTENT_NOT_FOUND: nội dung không tồn tại hoặc đã xóa mềm.
+- 409 ACTIVE_JOB_EXISTS: job đang hoạt động trùng content/version/lang; details gồm jobId.
+- 409 IDEMPOTENCY_KEY_REUSED: cùng key nhưng payload khác.
+- 409 CONTENT_VERSION_CHANGED: version hiện hành đã đổi so với job được tham chiếu khi tạo lại.
+- 409 INVALID_RETRY_REFERENCE: retryOfJobId không hợp lệ hoặc không thuộc cùng content/version/target.
+- 503 CONTENT_SERVICE_UNAVAILABLE.
 
 ### 4.3. Xem tiến độ
 
-`GET /jobs/{jobId}` — cần `CONTENT_ADMIN`.
+GET /api/v1/jobs/{jobId} — cần CONTENT_ADMIN.
 
-Response `200` gồm `jobId`, `contentId`, `version`, `status`, `createdAt`, `updatedAt`, `targets[]`; mỗi target gồm `targetId`, `lang`, `voiceId`, `status`, `errorCode` (nếu có), `updatedAt`. Job status: `PENDING`, `PROCESSING`, `COMPLETED`, `PARTIALLY_COMPLETED`, `FAILED`, `CANCELLED`. Target status: `PENDING`, `TRANSLATING`, `SYNTHESIZING`, `PUBLISHED`, `FAILED`, `CANCELLED`. Khi Narration Service phát `narration.requested`, job chuyển `PROCESSING` và target tương ứng chuyển `TRANSLATING`; `translation.completed` chuyển target tiến lên `SYNTHESIZING`, còn `tts.completed` chuyển target thành `PUBLISHED`, kể cả khi sự kiện dịch đến sau.
+Response 200 gồm jobId, contentId, version, status, createdAt, updatedAt, targets[]; mỗi target gồm targetId, lang, voiceId, status, errorCode (nếu có), updatedAt. Job status: PENDING, PROCESSING, COMPLETED, PARTIALLY_COMPLETED, FAILED, CANCELLED. Target status: PENDING, TRANSLATING, SYNTHESIZING, PUBLISHED, FAILED, CANCELLED. Khi Narration Service phát narration.requested, job chuyển PROCESSING và target tương ứng chuyển TRANSLATING; translation.completed chuyển target tiến lên SYNTHESIZING, còn tts.completed chuyển target thành PUBLISHED, kể cả khi sự kiện dịch đến sau.
 
-Target cuối (`PUBLISHED`, `FAILED`, `CANCELLED`) không đổi do event đến muộn; riêng thao tác hủy job có thể chuyển target `PUBLISHED` sang `CANCELLED`. Job tổng hợp khi tất cả target ở trạng thái cuối: tất cả PUBLISHED → `COMPLETED`; có cả PUBLISHED và FAILED → `PARTIALLY_COMPLETED`; tất cả FAILED → `FAILED`. Hủy job tạo trạng thái tổng `CANCELLED`.
+Target cuối (PUBLISHED, FAILED, CANCELLED) không đổi do event đến muộn; riêng thao tác hủy job có thể chuyển target PUBLISHED sang CANCELLED. Job tổng hợp khi tất cả target ở trạng thái cuối: tất cả PUBLISHED → COMPLETED; có cả PUBLISHED và FAILED → PARTIALLY_COMPLETED; tất cả FAILED → FAILED. Hủy job tạo trạng thái tổng CANCELLED.
 
-Khi có target chưa ở trạng thái cuối, job giữ `PROCESSING`. Mọi cập nhật target, tổng hợp job và xử lý timeout phải khóa job trước rồi cập nhật target và job trong cùng transaction. Target `FAILED`, kể cả do `TIMEOUT`, không được hồi sinh bởi event thành công đến muộn.
+Khi có target chưa ở trạng thái cuối, job giữ PROCESSING. Mọi cập nhật target, tổng hợp job và xử lý timeout phải khóa job trước rồi cập nhật target và job trong cùng transaction. Target FAILED, kể cả do TIMEOUT, không được hồi sinh bởi event thành công đến muộn.
 
 ### 4.4. Hủy job
 
-`POST /jobs/{jobId}/cancel` — cần `CONTENT_ADMIN`.
+POST /api/v1/jobs/{jobId}/cancel — cần CONTENT_ADMIN.
 
-Hủy job là thao tác tức thời, không có trạng thái `CANCEL_REQUESTED`. Chỉ hủy khi job đang `PENDING` hoặc `PROCESSING`. Trong một transaction có khóa job, đặt job thành `CANCELLED`; mọi target chưa `FAILED`, kể cả `PUBLISHED`, thành `CANCELLED`. Target đã `FAILED` giữ nguyên. Sau commit, phát `narration.cancelled`; Transactional Outbox được khuyến nghị theo BR-17.
+Hủy job là thao tác tức thời, không có trạng thái CANCEL_REQUESTED. Chỉ hủy khi job đang PENDING hoặc PROCESSING. Trong một transaction có khóa job, đặt job thành CANCELLED; mọi target chưa FAILED, kể cả PUBLISHED, thành CANCELLED. Target đã FAILED giữ nguyên. Sau commit, phát narration.cancelled; Transactional Outbox được khuyến nghị theo BR-17.
 
-Response `200` trả job cùng các target sau khi hủy. Job đã kết thúc trả `409 JOB_ALREADY_FINISHED` và không đổi dữ liệu; không tồn tại trả `404 JOB_NOT_FOUND`. Bản dịch/audio dùng chung không bị xóa. Target CANCELLED không được phục vụ cho khách.
+Response 200 trả job cùng các target sau khi hủy. Job đã kết thúc trả 409 JOB_ALREADY_FINISHED và không đổi dữ liệu; không tồn tại trả 404 JOB_NOT_FOUND. Bản dịch/audio dùng chung không bị xóa. Target CANCELLED không được phục vụ cho khách.
 
 ### 4.5. Khách tham quan
 
-Các endpoint `/api/v1/client` của API Gateway không yêu cầu đăng nhập. Gateway tra POI và nội dung đang hoạt động qua Content Service theo `qrCode`, sau đó gọi Narration Service và gộp kết quả với `poiId`, `poiName`, `contentTitle` để trả cho client. Gateway trả `404 POI_NOT_FOUND` nếu POI/nội dung không tồn tại hoặc đã xóa mềm.
+Các API /api/v1/client không yêu cầu đăng nhập. Response được bọc trong success envelope. API Gateway lấy dữ liệu POI/nội dung đang hoạt động qua Content Service, gọi Narration Service và gộp metadata POI/nội dung với danh sách ngôn ngữ hoặc artifact.
 
-- `GET /api/v1/client/pois/{qrCode}/narrations` — Gateway gọi `GET /internal/pois/by-qr/{qrCode}` của Content Service, rồi gọi `GET /internal/narrations?contentId={contentId}` của Narration Service. Response gồm `poiId`, `poiName`, `contentTitle` và danh sách ngôn ngữ có target `PUBLISHED`. Narration Service chọn version lớn nhất có target PUBLISHED theo từng ngôn ngữ; version phục vụ không bắt buộc trùng version hiện hành.
-- `GET /api/v1/client/pois/{qrCode}/narrations/{lang}` — Gateway tra POI/content như trên rồi gọi `GET /internal/narrations/{lang}?contentId={contentId}`. Narration Service chọn target PUBLISHED có version lớn nhất cho ngôn ngữ đó, lấy phụ đề từ Translation Service và yêu cầu TTS Service sinh signed URL từ object key. Gateway gộp metadata POI/nội dung với artifact để trả cho client.
+- GET /api/v1/client/pois?page=1&pageSize=20&query=bao-tang: danh sách điểm tham quan để khách duyệt, phân trang và tìm theo tên. data gồm items[], page, pageSize, totalItems và totalPages; mỗi mục có poiId, poiName và description; không trả qrCode.
+- GET /api/v1/client/qr/{qrCode}: dùng khi quét QR (UC5 A1), tra QR và trả poiId. QR không hợp lệ, POI không tồn tại/đã xóa hoặc không có nội dung hoạt động trả 404 POI_NOT_FOUND.
+- GET /api/v1/client/pois/{poiId}/narrations: Gateway tra POI/content hoạt động rồi gọi GET /internal/narrations?contentId={contentId}. Response gồm poiId, poiName, contentTitle và danh sách narrations có target PUBLISHED. Narration Service chọn version lớn nhất có target PUBLISHED theo từng ngôn ngữ; version phục vụ không bắt buộc trùng version hiện hành.
+- GET /api/v1/client/pois/{poiId}/narrations/{lang}: Gateway tra POI/content hoạt động rồi gọi GET /internal/narrations/{lang}?contentId={contentId}. Narration Service chọn target PUBLISHED có version lớn nhất cho ngôn ngữ đó, lấy phụ đề từ Translation Service và yêu cầu TTS Service sinh signed URL từ objectKey. Gateway gộp metadata POI/nội dung với artifact để trả cho client.
 
-Hai endpoint `/internal/narrations` chỉ service nội bộ được gọi và yêu cầu service credential. Endpoint danh sách trả `narrations[]` gồm `lang` và `version`; endpoint theo ngôn ngữ trả `lang`, `version`, `subtitle`, `audioUrl`, `audioUrlExpiresAt`.
+Response 200 của danh sách narration:
 
-Response `200` của endpoint ngôn ngữ:
+~~~json
+{
+  "status": "success",
+  "data": {
+    "poiId": "p-999",
+    "poiName": "Bảo tàng Lịch sử",
+    "contentTitle": "Giới thiệu bảo tàng",
+    "narrations": [
+      { "lang": "en", "version": 3 },
+      { "lang": "vi", "version": 2 }
+    ]
+  }
+}
+~~~
 
-```json
+Response 200 của narration theo ngôn ngữ:
+
+~~~json
 {
   "status": "success",
   "data": {
@@ -308,17 +392,33 @@ Response `200` của endpoint ngôn ngữ:
     "audioUrlExpiresAt": "2026-10-08T11:00:00Z"
   }
 }
-```
+~~~
 
-Signed URL hết hạn sau 1 giờ; sinh URL mới bằng cách gọi lại endpoint. Response chứa signed URL không được lưu trong database hoặc cache công khai. POI/nội dung không tồn tại hoặc đã xóa mềm trả `404 POI_NOT_FOUND`; ngôn ngữ chưa có target PUBLISHED trả `404 NARRATION_NOT_FOUND`.
+Signed URL hết hạn sau 1 giờ; sinh URL mới bằng cách gọi lại endpoint theo ngôn ngữ. Response chứa signed URL không được lưu trong database hoặc cache công khai. POI/nội dung không tồn tại hoặc đã xóa mềm trả 404 POI_NOT_FOUND. Ngôn ngữ không có narration PUBLISHED trả 404 NARRATION_NOT_FOUND với details.availableLangs là danh sách lang hiện có ở trạng thái PUBLISHED của nội dung; danh sách rỗng nếu chưa có ngôn ngữ nào.
+
+~~~json
+{
+  "status": "error",
+  "errorCode": "NARRATION_NOT_FOUND",
+  "message": "Chưa có thuyết minh PUBLISHED cho ngôn ngữ đã chọn",
+  "details": {
+    "availableLangs": ["en", "vi"]
+  },
+  "correlationId": "c4f7..."
+}
+~~~
+
+API nội bộ của Narration Service:
+- GET /internal/narrations?contentId={contentId}: trả narrations[] gồm lang và version.
+- GET /internal/narrations/{lang}?contentId={contentId}: trả lang, version, subtitle, audioUrl và audioUrlExpiresAt.
+
+Hai API nội bộ chỉ service được xác thực gọi bằng X-Service-Token.
 
 ### 4.6. Cập nhật tiến độ theo thời gian thực
 
-Khi tiến độ hoặc kết quả job thay đổi, Narration Service gửi callback nội bộ tới API Gateway. Gateway chuyển thông báo tới Actor qua WebSocket hoặc SSE. Thông báo gồm `jobId`, trạng thái tổng job, các target vừa thay đổi và thời điểm cập nhật; có thể mang `correlationId` để truy vết. Kênh này là best-effort; khi mất kết nối, client lấy trạng thái chuẩn bằng `GET /jobs/{jobId}`. Callback chỉ service nội bộ được gọi.
+Narration Service gửi callback nội bộ tới API Gateway bằng POST /internal/callbacks/job-progress. Request dùng X-Service-Token của Narration Service và X-Correlation-ID. Callback chỉ chứa tiến độ của một job:
 
-Thông điệp tiến độ tối thiểu có dạng:
-
-```json
+~~~json
 {
   "event": "job.progress",
   "correlationId": "c4f7...",
@@ -331,44 +431,49 @@ Thông điệp tiến độ tối thiểu có dạng:
     ]
   }
 }
-```
+~~~
+
+Client nhận SSE qua GET /api/v1/jobs/{jobId}/events?accessToken=<accessToken>. EventSource không gửi được Authorization header; Gateway kiểm tra access token JWT trong accessToken theo cùng quy tắc chữ ký, kid, hạn dùng và role CONTENT_ADMIN của API có xác thực. Query token chỉ dùng qua HTTPS và phải được loại khỏi access log. Response dùng Content-Type: text/event-stream. Khi mở stream, Gateway đăng ký kết nối theo jobId; callback chỉ được gửi tới các stream đã đăng ký đúng jobId, không broadcast tiến độ sang job khác.
+
+Gateway không giữ callback để phát lại cho client mất kết nối; SSE là best-effort. Client lấy trạng thái chuẩn bằng GET /api/v1/jobs/{jobId}. Callback nội bộ thiếu/sai X-Service-Token bị từ chối.
 
 ## 5. RabbitMQ event contract
 
 ### 5.1. Quy ước chung
 
-- Exchange sự kiện: `narration.events` (`topic`, durable); routing key bằng tên event.
-- Exchange hủy: `narration.cancel` (`fanout`).
-- Event body dùng camelCase. Metadata đặt trong AMQP headers: `eventId` (UUID), `correlationId`, `schemaVersion`, `occurredAt` (UTC). `targetId` đặt trong body cho các event theo target.
+- Exchange sự kiện: narration.events (topic, durable); routing key bằng tên event.
+- Exchange hủy: narration.cancel (fanout).
+- Event body dùng camelCase. Metadata đặt trong AMQP headers: eventId (UUID), correlationId, schemaVersion, occurredAt (UTC). targetId đặt trong body cho các event theo target.
 - Publisher bật confirms; sự kiện có thể phát lặp (at-least-once). Consumer phải idempotent.
-- Queue chính durable, message persistent, manual ack và prefetch cấu hình được. Message malformed: nack không requeue, chuyển DLQ. Provider failure sau retry phát event `.failed`, không đưa DLQ. DLQ được giám sát, giới hạn TTL tối đa 24 giờ và chỉ replay thủ công khi job chưa kết thúc, target chưa ở trạng thái cuối.
-- Service chỉ ack message đầu vào sau khi kết quả đã được lưu bền vững và event kết quả đã được broker xác nhận. Outbox tại Narration và Content Service được khuyến nghị theo BR-17; Translation/TTS phải bảo đảm không mất event kết quả khi ack. Nếu không triển khai outbox, timeout ở Narration Service phải kết thúc target bị thiếu event thành `FAILED` với `TIMEOUT`.
-- Consumer cancellation phải ghi nhận `jobId` đã hủy ở nơi lưu bền vững dùng chung cho các replica và kiểm tra trạng thái này trước khi gọi provider, lưu kết quả hoặc phát event kết quả. Danh sách job hủy phải tồn tại lâu hơn thời gian giữ DLQ (ví dụ 48 giờ khi DLQ tối đa 24 giờ). Không dựa riêng vào event fanout trong bộ nhớ; event hủy có thể đến trước/sau event công việc và replica có thể khởi động lại.
+- Queue chính durable, message persistent, manual ack và prefetch cấu hình được. Message malformed: nack không requeue, chuyển DLQ. Provider failure sau tối đa 3 lần retry (tổng tối đa 4 lần gọi tính cả lần đầu) phát event .failed, không đưa DLQ. DLQ được giám sát, giới hạn TTL tối đa 24 giờ và chỉ replay thủ công khi job chưa kết thúc, target chưa ở trạng thái cuối.
+- Service chỉ ack message đầu vào sau khi kết quả đã được lưu bền vững và event kết quả đã được broker xác nhận. Outbox tại Narration và Content Service được khuyến nghị theo BR-17; Translation/TTS phải bảo đảm không mất event kết quả khi ack. Nếu không triển khai outbox, timeout ở Narration Service phải kết thúc target bị thiếu event thành FAILED với TIMEOUT.
+- Consumer cancellation phải ghi nhận jobId đã hủy ở nơi lưu bền vững dùng chung cho các replica và kiểm tra trạng thái này trước khi gọi provider, lưu kết quả hoặc phát event kết quả. Danh sách job hủy phải tồn tại lâu hơn thời gian giữ DLQ (ví dụ 48 giờ khi DLQ tối đa 24 giờ). Không dựa riêng vào event fanout trong bộ nhớ; event hủy có thể đến trước/sau event công việc và replica có thể khởi động lại.
+- Nội dung và metadata của REST nội bộ dùng X-Service-Token theo §1.1; cơ chế này không thay thế metadata headers của RabbitMQ.
 
 ### 5.2. Event schemas
 
 Payload tối thiểu theo từng routing key:
 
-`content.updated` — Content Service → chưa có consumer bắt buộc, phát mỗi khi tạo version mới:
+content.updated — Content Service phát mỗi khi tạo version mới:
 
-```json
+~~~json
 {
   "contentId": "c-888",
   "version": 4
 }
-```
+~~~
 
-`content.deleted` — Content Service → chưa có consumer bắt buộc, phát khi xóa mềm nội dung:
+content.deleted — Content Service phát khi xóa mềm nội dung:
 
-```json
+~~~json
 {
   "contentId": "c-888"
 }
-```
+~~~
 
-`narration.requested` — Narration Service → Translation Service, một message cho mỗi target:
+narration.requested — Narration Service gửi Translation Service một message cho mỗi target:
 
-```json
+~~~json
 {
   "jobId": "j-777",
   "targetId": "t-111",
@@ -377,11 +482,11 @@ Payload tối thiểu theo từng routing key:
   "lang": "en",
   "voiceId": "en-US-Journey-F"
 }
-```
+~~~
 
-`translation.completed` — Translation Service → TTS Service và Narration Service (mỗi service một queue riêng):
+translation.completed — Translation Service gửi tới TTS Service và Narration Service qua hai queue riêng:
 
-```json
+~~~json
 {
   "jobId": "j-777",
   "targetId": "t-111",
@@ -389,22 +494,22 @@ Payload tối thiểu theo từng routing key:
   "lang": "en",
   "voiceId": "en-US-Journey-F"
 }
-```
+~~~
 
-`translation.failed` — Translation Service → Narration Service:
+translation.failed — Translation Service gửi Narration Service:
 
-```json
+~~~json
 {
   "jobId": "j-777",
   "targetId": "t-111",
   "lang": "en",
   "errorCode": "PROVIDER_ERROR"
 }
-```
+~~~
 
-`tts.completed` — TTS Service → Narration Service:
+tts.completed — TTS Service gửi Narration Service:
 
-```json
+~~~json
 {
   "jobId": "j-777",
   "targetId": "t-111",
@@ -412,48 +517,47 @@ Payload tối thiểu theo từng routing key:
   "audioId": "au-333",
   "lang": "en"
 }
-```
+~~~
 
-`tts.failed` — TTS Service → Narration Service:
+tts.failed — TTS Service gửi Narration Service:
 
-```json
+~~~json
 {
   "jobId": "j-777",
   "targetId": "t-111",
   "lang": "en",
   "errorCode": "STORAGE_ERROR"
 }
-```
+~~~
 
-`narration.cancelled` — Narration Service → exchange fanout `narration.cancel`:
+narration.cancelled — Narration Service gửi lên exchange fanout narration.cancel:
 
-```json
+~~~json
 {
   "jobId": "j-777"
 }
-```
+~~~
 
-`correlationId` của job nằm trong header metadata, không lặp trong body. `errorCode` thuộc enum: `TIMEOUT`, `PROVIDER_ERROR`, `CONTENT_NOT_FOUND`, `STORAGE_ERROR`, `INTERNAL_ERROR`. Lỗi do provider hết retry dùng `PROVIDER_ERROR`; timeout do Narration Service hết thời gian chờ dùng `TIMEOUT`.
+correlationId của job nằm trong metadata header, không lặp trong payload. errorCode thuộc enum: TIMEOUT, PROVIDER_ERROR, CONTENT_NOT_FOUND, STORAGE_ERROR, INTERNAL_ERROR. Lỗi do provider hết lượt retry dùng PROVIDER_ERROR; timeout do Narration Service hết thời gian chờ dùng TIMEOUT.
 
 ### 5.3. Queue bindings
 
 | Queue | Binding | Consumer |
 |---|---|---|
-| `translation.q.requested` | `narration.requested` | Translation Service |
-| `tts.q.translation-completed` | `translation.completed` | TTS Service |
-| `narration.q.translation-completed` | `translation.completed` | Narration Service |
-| `narration.q.results` | `translation.failed`, `tts.completed`, `tts.failed` | Narration Service |
-| Queue từng instance Translation Service | fanout exchange `narration.cancel` | Translation Service (exclusive, auto-delete) |
-| Queue từng instance TTS Service | fanout exchange `narration.cancel` | TTS Service (exclusive, auto-delete) |
+| translation.q.requested | narration.requested | Translation Service |
+| tts.q.translation-completed | translation.completed | TTS Service |
+| narration.q.translation-completed | translation.completed | Narration Service |
+| narration.q.results | translation.failed, tts.completed, tts.failed | Narration Service |
+| Queue từng instance Translation Service | exchange narration.cancel | Translation Service (exclusive, auto-delete) |
+| Queue từng instance TTS Service | exchange narration.cancel | TTS Service (exclusive, auto-delete) |
 
-`translation.completed` phải được nhân bản vào queue riêng của TTS và Narration Service, không để hai service cạnh tranh đọc chung một queue. Có DLQ riêng cho từng queue công việc.
+translation.completed phải được nhân bản vào queue riêng của TTS và Narration Service, không để hai service cạnh tranh đọc chung một queue. Có DLQ riêng cho từng queue công việc.
 
-`content.updated` và `content.deleted` được phát lên `narration.events` nhưng hiện chưa có queue consumer bắt buộc.
+content.updated và content.deleted được phát lên narration.events nhưng hiện chưa có queue consumer bắt buộc.
 
-## 6. Các quyết định triển khai cần giữ đúng hợp đồng
+## 6. Quy tắc triển khai liên quan tới hợp đồng
 
 - Mọi cập nhật trạng thái target, tổng hợp job, timeout và hủy job khóa bản ghi job trước, sau đó mới cập nhật target trong cùng transaction.
-- Timeout được cấu hình riêng cho giai đoạn dịch/TTS; giá trị khuyến nghị trong v2.5 là 15 phút mỗi giai đoạn. Khi timeout, target thành `FAILED` với `errorCode = TIMEOUT`.
-- Lỗi provider hoặc dependency tạm thời được retry với backoff tối đa 3 lần sau lần gọi đầu (tối đa 4 lần gọi tổng cộng). Sau khi hết retry, phát event `.failed`; không đưa lỗi provider vào DLQ. Lỗi nội bộ có giới hạn retry riêng, không requeue vô hạn.
-- TTS lưu object key, không lưu signed URL. Signed URL chỉ được tạo theo yêu cầu nghe.
-- CI dùng Maven Wrapper (`./mvnw clean verify`) khi có thay đổi ở service tương ứng trên branch/PR; thành viên không cần cài Maven toàn máy. CD không tự chạy sau push: người vận hành khởi chạy workflow thủ công từ `main` sau khi CI thành công. Pipeline chép JAR qua SSH, chuyển symlink release và khởi động lại unit `systemd`; nếu health check `GET /actuator/health` thất bại thì khôi phục symlink về JAR trước đó. Quy trình không yêu cầu image hoặc Docker runtime.
+- Timeout được cấu hình riêng cho giai đoạn dịch/TTS; giá trị khuyến nghị trong v2.5 là 15 phút mỗi giai đoạn. Khi timeout, target thành FAILED với errorCode = TIMEOUT.
+- Lỗi từ API/Provider bên ngoài được retry tối đa 3 lần sau lần gọi đầu, tổng tối đa 4 lần gọi. Sau khi hết retry, phát event .failed; không đưa lỗi provider vào DLQ. Lỗi nội bộ có giới hạn retry riêng, không requeue vô hạn.
+- TTS lưu objectKey, không lưu signed URL. Signed URL chỉ được tạo theo yêu cầu nghe.

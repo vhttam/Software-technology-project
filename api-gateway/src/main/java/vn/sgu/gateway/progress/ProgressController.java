@@ -20,7 +20,7 @@ public class ProgressController {
     private final byte[] expectedToken;
 
     public ProgressController(ProgressHub hub,
-            @Value("${gateway.internal-token}") String internalToken) {
+            @Value("${gateway.service-tokens.narration}") String internalToken) {
         this.hub = hub;
         this.expectedToken = internalToken.getBytes(StandardCharsets.UTF_8);
     }
@@ -30,9 +30,9 @@ public class ProgressController {
         return hub.stream(jobId);
     }
 
-    @PostMapping("/internal/jobs/progress")
+    @PostMapping("/internal/callbacks/job-progress")
     public Mono<ResponseEntity<Void>> callback(
-            @RequestHeader(value = "X-Internal-Token", required = false) String token,
+            @RequestHeader(value = "X-Service-Token", required = false) String token,
             @Valid @RequestBody JobProgressEvent event) {
         if (!StringUtils.hasText(token) || !MessageDigest.isEqual(expectedToken, token.getBytes(StandardCharsets.UTF_8))) {
             return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).build());

@@ -16,13 +16,13 @@ class ProgressControllerTest {
     @Test
     void acceptsCallbackOnlyWithValidInternalTokenAndPublishesEvent() throws Exception {
         ProgressHub hub = new ProgressHub();
-        ProgressController controller = new ProgressController(hub, "internal-secret");
+        ProgressController controller = new ProgressController(hub, "narration-service-secret");
         CountDownLatch received = new CountDownLatch(1);
         var subscription = hub.stream("job-1").subscribe(ignored -> received.countDown());
         JobProgressEvent event = new JobProgressEvent("job.progress", "corr-1",
                 new ProgressData("job-1", "PROCESSING", Instant.now(), List.of()));
 
-        var accepted = controller.callback("internal-secret", event).block();
+        var accepted = controller.callback("narration-service-secret", event).block();
 
         assertThat(accepted.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         assertThat(received.await(1, TimeUnit.SECONDS)).isTrue();
@@ -31,7 +31,7 @@ class ProgressControllerTest {
 
     @Test
     void rejectsMissingOrIncorrectInternalToken() {
-        ProgressController controller = new ProgressController(new ProgressHub(), "internal-secret");
+        ProgressController controller = new ProgressController(new ProgressHub(), "narration-service-secret");
         JobProgressEvent event = new JobProgressEvent("job.progress", "corr-1",
                 new ProgressData("job-1", "PROCESSING", Instant.now(), List.of()));
 

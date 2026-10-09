@@ -63,8 +63,18 @@ class ClientNarrationServiceTest {
     @Test
     void getRejectsMissingLanguageOrIncompletePublishedArtifacts() {
         when(targets.findPublishedByContent("content-1", TargetStatus.PUBLISHED)).thenReturn(List.of());
-        assertAppException(HttpStatus.NOT_FOUND, "NARRATION_NOT_FOUND",
-                () -> service.get("content-1", "en", "corr-1"));
+        assertThatThrownBy(() -> service.get("content-1", "en", "corr-1"))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.status()).isEqualTo(HttpStatus.NOT_FOUND);
+                    assertThat(ex.errorCode()).isEqualTo("NARRATION_NOT_FOUND");
+                    assertThat(ex.details()).isEqualTo(java.util.Map.of("availableLangs", List.of()));
+                });
+
+        JobTargetEntity french = publishedTarget("j-fr", 1, "fr", "tr-fr", "au-fr");
+        when(targets.findPublishedByContent("content-1", TargetStatus.PUBLISHED)).thenReturn(List.of(french));
+        assertThatThrownBy(() -> service.get("content-1", "en", "corr-1"))
+                .isInstanceOfSatisfying(AppException.class, ex ->
+                        assertThat(ex.details()).isEqualTo(java.util.Map.of("availableLangs", List.of("fr"))));
 
         JobTargetEntity incomplete = publishedTarget("j-en", 1, "en", null, "au-en");
         when(targets.findPublishedByContent("content-1", TargetStatus.PUBLISHED)).thenReturn(List.of(incomplete));

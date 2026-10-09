@@ -12,7 +12,7 @@ public class ClientNarrationExceptionHandler {
         String correlationId = exchange.getRequest().getHeaders().getFirst("X-Correlation-ID");
         if (correlationId != null) exchange.getResponse().getHeaders().set("X-Correlation-ID", correlationId);
         return ResponseEntity.status(ex.status())
-                .body(new GatewayClientError("error", ex.errorCode(), ex.getMessage(), null, correlationId));
+                .body(new GatewayClientError("error", ex.errorCode(), ex.getMessage(), ex.details(), correlationId));
     }
 
     public record GatewayClientError(String status, String errorCode, String message,

@@ -53,8 +53,8 @@ app:
     translation-base-url: ${TRANSLATION_SERVICE_URL:http://localhost:8084}
     tts-base-url: ${TTS_SERVICE_URL:http://localhost:8085}
     api-gateway-url: ${API_GATEWAY_URL:http://localhost:8080}
-    internal-token: ${INTERNAL_SERVICE_TOKEN:local_internal_token_change_me}
-    service-token: ${INTERNAL_SERVICE_TOKEN:local_internal_token_change_me}
+    gateway-service-token: ${GATEWAY_SERVICE_TOKEN:local_gateway_token_change_me}
+    service-token: ${NARRATION_SERVICE_TOKEN:local_narration_token_change_me}
   jobs:
     translation-timeout: ${TRANSLATION_TIMEOUT:PT15M}
     synthesis-timeout: ${SYNTHESIS_TIMEOUT:PT15M}

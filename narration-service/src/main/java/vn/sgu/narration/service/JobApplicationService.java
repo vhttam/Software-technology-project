@@ -89,7 +89,8 @@ public class JobApplicationService {
         }
 
         Contracts.ContentCheck content = dependencies.validateContentForJob(request.contentId(), correlationId);
-        if (content == null || content.version() == null || !Boolean.FALSE.equals(content.isDeleted())) {
+        if (content == null || content.version() == null || content.sourceLang() == null
+                || content.sourceLang().isBlank()) {
             throw new AppException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Nội dung không tồn tại hoặc đã bị xóa mềm");
         }
         validateVoices(request.targets(), correlationId);
@@ -148,9 +149,8 @@ public class JobApplicationService {
 
         List<NarrationJobEntity> activeJobs = jobRepository.findByContentVersionAndStatuses(
                 request.contentId(), version, ACTIVE_STATUSES);
-        String permittedRetryJob = validateRetryReference(request, activeJobs, version);
-        for (NarrationJobEntity active : activeJobs) {
-            if (active.getJobId().equals(permittedRetryJob)) continue;
+        String permittedRetryJob = validateRetryReference(request, version);
+        if (permittedRetryJob == null) for (NarrationJobEntity active : activeJobs) {
             for (Contracts.TargetInput input : request.targets()) {
                 if (active.getTargets().stream().anyMatch(t -> t.getLang().equalsIgnoreCase(input.lang()))) {
                     throw new AppException(HttpStatus.CONFLICT, "ACTIVE_JOB_EXISTS",
@@ -173,15 +173,11 @@ public class JobApplicationService {
         return mapper.toView(job);
     }
 
-    private String validateRetryReference(Contracts.CreateJobRequest request,
-                                          List<NarrationJobEntity> activeJobs, int version) {
+    private String validateRetryReference(Contracts.CreateJobRequest request, int version) {
         if (request.retryOfJobId() == null || request.retryOfJobId().isBlank()) return null;
-        NarrationJobEntity referenced = activeJobs.stream()
-                .filter(j -> j.getJobId().equals(request.retryOfJobId())).findFirst()
-                .orElseGet(() -> jobRepository.findById(request.retryOfJobId())
-                        .filter(job -> ACTIVE_STATUSES.contains(job.getStatus()))
-                        .orElseThrow(() -> new AppException(HttpStatus.CONFLICT, "INVALID_RETRY_REFERENCE",
-                                "Job được tham chiếu không còn hoạt động hoặc không tồn tại")));
+        NarrationJobEntity referenced = jobRepository.findById(request.retryOfJobId())
+                .orElseThrow(() -> new AppException(HttpStatus.CONFLICT, "INVALID_RETRY_REFERENCE",
+                        "Job được tham chiếu không tồn tại"));
         if (!referenced.getContentId().equals(request.contentId())) {
             throw new AppException(HttpStatus.CONFLICT, "INVALID_RETRY_REFERENCE",
                     "Job được tham chiếu thuộc nội dung khác");
@@ -189,6 +185,10 @@ public class JobApplicationService {
         if (referenced.getContentVersion() != version) {
             throw new AppException(HttpStatus.CONFLICT, "CONTENT_VERSION_CHANGED",
                     "Version hiện hành đã thay đổi; hãy tạo job cho version mới nhất");
+        }
+        if (!ACTIVE_STATUSES.contains(referenced.getStatus())) {
+            throw new AppException(HttpStatus.CONFLICT, "INVALID_RETRY_REFERENCE",
+                    "Job được tham chiếu không còn ở trạng thái đang xử lý");
         }
         boolean matches = request.targets().stream().allMatch(input -> referenced.getTargets().stream()
                 .anyMatch(target -> target.getLang().equalsIgnoreCase(input.lang())));

@@ -56,7 +56,7 @@ class JobApplicationServiceTest {
         when(jobs.findByContentVersionAndStatuses(anyString(), anyInt(), anyList())).thenReturn(List.of());
         when(jobs.saveAndFlush(any(NarrationJobEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(dependencies.validateContentForJob(anyString(), anyString()))
-                .thenAnswer(invocation -> new Contracts.ContentCheck(invocation.getArgument(0), 3, false));
+                .thenAnswer(invocation -> new Contracts.ContentCheck(invocation.getArgument(0), 3, "vi"));
         when(dependencies.voices(anyString())).thenReturn(new Contracts.VoiceCatalog(List.of(
                 new Contracts.VoiceGroup("en", List.of("en-voice")),
                 new Contracts.VoiceGroup("fr", List.of("fr-voice")))));
@@ -100,12 +100,12 @@ class JobApplicationServiceTest {
     @Test
     void rejectsUnavailableDeletedOrMissingContentAndUnsupportedVoice() {
         when(dependencies.validateContentForJob("missing-content", "corr-1"))
-                .thenReturn(new Contracts.ContentCheck("missing-content", null, false));
+                .thenThrow(new AppException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content missing"));
         assertAppException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", () ->
                 service.create("user-1", "corr-1", "idem-1", request("missing-content", enTarget())));
 
         when(dependencies.validateContentForJob("deleted-content", "corr-1"))
-                .thenReturn(new Contracts.ContentCheck("deleted-content", 3, true));
+                .thenThrow(new AppException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content deleted"));
         assertAppException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", () ->
                 service.create("user-1", "corr-1", "idem-2", request("deleted-content", enTarget())));
 
@@ -176,7 +176,13 @@ class JobApplicationServiceTest {
                 "user-2", "corr-2", null, Instant.now());
         active.setStatus(JobStatus.PROCESSING, Instant.now());
         active.addTarget(new JobTargetEntity("t-en", "en", "en-voice", Instant.now()));
-        when(jobs.findByContentVersionAndStatuses(anyString(), anyInt(), anyList())).thenReturn(List.of(active));
+        NarrationJobEntity activeOther = new NarrationJobEntity("j-active-other", "content-1", 3,
+                "user-3", "corr-3", null, Instant.now());
+        activeOther.setStatus(JobStatus.PROCESSING, Instant.now());
+        activeOther.addTarget(new JobTargetEntity("t-en-other", "en", "en-voice", Instant.now()));
+        when(jobs.findByContentVersionAndStatuses(anyString(), anyInt(), anyList()))
+                .thenReturn(List.of(active, activeOther));
+        when(jobs.findById("j-active")).thenReturn(Optional.of(active));
         Contracts.CreateJobRequest retry = new Contracts.CreateJobRequest("content-1", "j-active", List.of(enTarget()));
 
         Contracts.JobView created = service.create("user-1", "corr-1", "idem-retry", retry);

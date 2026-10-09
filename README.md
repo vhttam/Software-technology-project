@@ -60,13 +60,13 @@ Script bật mock cho Content/TTS/Translation, chạy migration, mở HTTP tại
 .\scripts\run-api-gateway.ps1
 ```
 
-Gateway mở tại `http://localhost:8080`. Hai script dùng cùng `INTERNAL_SERVICE_TOKEN` mặc định. Nếu bạn tự đặt token, hãy đặt cùng một giá trị trong cả hai cửa sổ trước khi chạy script.
+Gateway mở tại `http://localhost:8080`. Hai script có hai secret theo service gọi: đặt cùng `GATEWAY_SERVICE_TOKEN` trong cả hai cửa sổ để Gateway gọi Narration, và cùng `NARRATION_SERVICE_TOKEN` trong cả hai cửa sổ để Narration gọi callback về Gateway. Hai secret này phải khác nhau.
 
 Kiểm tra health:
 
 ```powershell
-Invoke-RestMethod http://localhost:8082/actuator/health
-Invoke-RestMethod http://localhost:8080/actuator/health
+Invoke-RestMethod http://localhost:8082/health
+Invoke-RestMethod http://localhost:8080/health
 ```
 
 Tạo access token phát triển và thử tạo job qua Gateway:
@@ -92,7 +92,7 @@ Trong checkout này, mock giả lập lời gọi REST tới Content/TTS/Transla
 
 ```powershell
 $target = $job.data.targets[0]
-$internalHeaders = @{ 'X-Gateway-Service-Token' = 'local_internal_token_change_me' }
+$internalHeaders = @{ 'X-Service-Token' = 'local_gateway_token_change_me' }
 $translationEvent = @{
   jobId = $jobId
   targetId = $target.targetId
@@ -129,9 +129,9 @@ Khi checkout đã có đủ source, chạy SQL Server và RabbitMQ trước, sau
 | 5 | Narration | 8082 | Đặt `APP_MOCKS_ENABLED=false`, cấu hình SQL Server/RabbitMQ, rồi chạy `scripts/run-narration-service.ps1` |
 | 6 | API Gateway | 8080 | Đặt `APP_MOCKS_ENABLED=false`, tạo JWT key như phần trên, rồi chạy `scripts/run-api-gateway.ps1` |
 
-Đặt biến môi trường trong đúng cửa sổ sẽ chạy service. Trước khi tắt mock, cấu hình `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, thông tin RabbitMQ và các URL downstream trong environment của Narration; Gateway cần `JWT_PUBLIC_KEY_PATH`, `INTERNAL_SERVICE_TOKEN` và URL Auth/Content. Các giá trị mặc định trong hai script trỏ tới `localhost` và các port ở bảng. Mỗi service phải báo healthy tại `/actuator/health` trước khi thử luồng tích hợp.
+Đặt biến môi trường trong đúng cửa sổ sẽ chạy service. Trước khi tắt mock, cấu hình `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, thông tin RabbitMQ và các URL downstream trong environment của Narration; Gateway cần `JWT_PUBLIC_KEY_PATH`, `GATEWAY_SERVICE_TOKEN`, `NARRATION_SERVICE_TOKEN` và URL Auth/Content. Nếu Gateway lấy khóa từ JWKS, đặt thêm `JWT_JWK_SET_URI` tới `/api/v1/auth/.well-known/jwks.json`. Các giá trị mặc định trong hai script trỏ tới `localhost` và các port ở bảng. Hai service hiện có cung cấp `/health` cho smoke test; các service khác cần tuân theo cùng đường dẫn khi được bổ sung.
 
-Với source hiện có, chỉ có thể thực hiện đầy đủ hai bước Narration và Gateway theo mục trước; các bước Auth, Content, Translation và TTS sẽ hoạt động sau khi code tương ứng được thêm vào checkout. CI/CD cũng chỉ kiểm tra và deploy hai module đã có `pom.xml`.
+Với source hiện có, chỉ có thể thực hiện đầy đủ hai bước Narration và Gateway theo mục trước; các bước Auth, Content, Translation và TTS sẽ hoạt động sau khi code tương ứng được thêm vào checkout. CI/CD bên dưới cũng chỉ kiểm tra và deploy hai module đã có `pom.xml`.
 
 ## Chạy kiểm tra
 
@@ -142,49 +142,36 @@ Từ thư mục gốc, chạy test/build độc lập cho từng service bằng 
 .\mvnw.cmd -B -f narration-service/pom.xml clean verify
 ```
 
-## CI/CD không dùng container
+## CI/CD và deploy Staging
 
-Hai workflow trong `.github/workflows` chạy `./mvnw clean verify` khi push có thay đổi thuộc service tương ứng, khi mở/cập nhật pull request vào `main`, hoặc khi được chạy thủ công. Push và pull request chỉ kiểm tra mã; deploy không tự chạy sau push. Workflow dùng chung phiên bản Maven đã ghim trong Maven Wrapper.
+Hai workflow trong `.github/workflows` chạy Maven Wrapper để build và test khi có thay đổi tương ứng trên branch, cũng như trên pull request vào `main`. Khi commit được merge/push vào `main`, workflow của service bị ảnh hưởng sẽ build Docker image có tag đúng bằng commit SHA, đẩy image lên GitHub Container Registry (GHCR), triển khai image lên Staging và gọi `GET /health` làm smoke test. Nếu smoke test không thành công, workflow khôi phục image đang chạy trước đó. `workflow_dispatch` chỉ chạy bước build/test; deploy tự động chỉ chạy theo push vào `main`.
 
-Để deploy thủ công, vào GitHub → **Actions** → chọn `api-gateway` hoặc `narration-service` → **Run workflow** → chọn nhánh `main`. Workflow build JAR, chép JAR qua SSH vào `/opt/sgu`, chuyển symlink sang bản mới, khởi động lại service bằng `systemd`, rồi kiểm tra health. Nếu health check thất bại, workflow khôi phục symlink về JAR trước đó.
+CI/CD chỉ build/deploy API Gateway và Narration Service vì đây là hai module duy nhất có mã nguồn trong checkout. Muốn chạy đủ sáu service theo hướng dẫn ở trên, cần bổ sung Auth, Content, Translation và TTS cùng workflow tương ứng.
 
-Trước lần deploy đầu, Staging cần Linux, JDK 17, `systemd`, `curl`, SQL Server/RabbitMQ đang chạy và hai service unit đã cài từ [`infrastructure/systemd`](infrastructure/systemd). Ví dụ chuẩn bị máy lần đầu (đổi `deploy` thành giá trị `STAGING_USER`):
+### Chuẩn bị máy Staging
+
+Staging cần Linux, Docker Engine, `curl`, SQL Server, RabbitMQ và các service downstream có thể truy cập từ host. Hai image dùng host network để kết nối các địa chỉ `127.0.0.1` trong file cấu hình. Tạo trước thư mục và file cấu hình; thay `deploy` bằng tài khoản SSH dùng trong secret `STAGING_USER`. Cấp quyền cho tài khoản này sử dụng Docker và đọc các file cấu hình:
 
 ```bash
-sudo groupadd --system sgu
-sudo useradd --system --gid sgu --home-dir /opt/sgu --create-home --shell /usr/sbin/nologin sgu
-sudo usermod -aG sgu deploy
-sudo install -d -o sgu -g sgu -m 2775 \
-  /opt/sgu/api-gateway/incoming /opt/sgu/api-gateway/releases \
-  /opt/sgu/narration-service/incoming /opt/sgu/narration-service/releases
-sudo install -d -o root -g sgu -m 0750 /etc/sgu /opt/sgu/keys
-sudo install -o root -g sgu -m 0640 infrastructure/systemd/sgu-api-gateway.service /etc/systemd/system/
-sudo install -o root -g sgu -m 0640 infrastructure/systemd/sgu-narration-service.service /etc/systemd/system/
-sudo install -o root -g sgu -m 0640 infrastructure/systemd/api-gateway.env.example /etc/sgu/api-gateway.env
-sudo install -o root -g sgu -m 0640 infrastructure/systemd/narration-service.env.example /etc/sgu/narration-service.env
-sudo install -o root -g sgu -m 0640 infrastructure/keys/jwt-public.pem /opt/sgu/keys/jwt-public.pem
-sudo systemctl daemon-reload
+sudo install -d -o deploy -g deploy -m 0750 /etc/sgu /opt/sgu/keys
+sudo install -o deploy -g deploy -m 0640 infrastructure/systemd/api-gateway.env.example /etc/sgu/api-gateway.env
+sudo install -o deploy -g deploy -m 0640 infrastructure/systemd/narration-service.env.example /etc/sgu/narration-service.env
+sudo install -o deploy -g deploy -m 0640 /duong-dan-an-toan/jwt-public.pem /opt/sgu/keys/jwt-public.pem
 sudoedit /etc/sgu/api-gateway.env
 sudoedit /etc/sgu/narration-service.env
 ```
 
-Đặt secret thật trong hai file môi trường và cùng `INTERNAL_SERVICE_TOKEN`; không commit các file này. User deploy cần đăng nhập lại sau khi được thêm vào group `sgu`. Cho phép user đó restart/stop hai unit và đọc log bằng `sudo -n` qua `/etc/sudoers.d/sgu-deploy` (tạo bằng `sudo visudo -f /etc/sudoers.d/sgu-deploy`):
+Đặt mật khẩu thật cho SQL Server/RabbitMQ và hai service token. `GATEWAY_SERVICE_TOKEN` phải giống nhau trong hai file vì Narration xác thực lời gọi từ Gateway; `NARRATION_SERVICE_TOKEN` cũng phải giống nhau trong hai file vì Gateway xác thực callback từ Narration. Hai token phải khác nhau. Đặt đúng các URL database, RabbitMQ, Auth/Content/Translation/TTS theo vị trí thực tế; không commit file môi trường hoặc private key. Chuyển public key tới Staging qua kênh an toàn; private key không được đưa vào image. Cấp quyền dùng Docker cho `STAGING_USER` theo hướng dẫn Docker của bản Linux đang chạy.
 
-```sudoers
-deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart sgu-api-gateway.service, /usr/bin/systemctl stop sgu-api-gateway.service, /usr/bin/systemctl restart sgu-narration-service.service, /usr/bin/systemctl stop sgu-narration-service.service, /usr/bin/journalctl -u sgu-api-gateway.service -n 100 --no-pager, /usr/bin/journalctl -u sgu-narration-service.service -n 100 --no-pager
-```
+### GitHub repository secrets
 
-Thay `deploy` bằng `STAGING_USER`. Sau deploy đầu tiên thành công, bật hai unit chạy khi máy khởi động:
+Thêm các secrets dưới **Settings → Secrets and variables → Actions**:
 
-```bash
-sudo systemctl enable sgu-api-gateway.service sgu-narration-service.service
-```
+- `STAGING_HOST`: hostname/IP của Staging.
+- `STAGING_USER`: tài khoản SSH có quyền triển khai bằng Docker.
+- `STAGING_SSH_KEY`: private SSH key của tài khoản trên.
+- `STAGING_KNOWN_HOSTS`: host key Staging đã xác minh, định dạng OpenSSH `host key-type public-key`.
+- `GHCR_USERNAME`: username GitHub dùng để đăng nhập GHCR trên Staging.
+- `GHCR_READ_TOKEN`: GitHub Personal Access Token có quyền `read:packages` để Staging kéo image private. Token được truyền qua SSH bằng stdin, không ghi vào lệnh hoặc log.
 
-Thêm các GitHub repository secrets:
-
-- `STAGING_HOST`: tên host hoặc IP của Staging.
-- `STAGING_USER`: user SSH được phép ghi vào `/opt/sgu`.
-- `STAGING_SSH_KEY`: private SSH key của user deploy.
-- `STAGING_KNOWN_HOSTS`: host key đã được xác minh của Staging, định dạng OpenSSH `host key-type public-key`.
-
-Các service Auth, Content, Translation và TTS chưa có source trong checkout, nên workflow hiện chỉ kiểm tra và deploy API Gateway/Narration; chúng cần workflow riêng khi mã nguồn được thêm vào repository.
+Workflow dùng `GITHUB_TOKEN` với quyền `packages:write` để đẩy image. Mỗi lần deploy chạy container với `--restart unless-stopped`; log có thể xem trên máy Staging bằng `docker logs sgu-api-gateway` hoặc `docker logs sgu-narration-service`.

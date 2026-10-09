@@ -13,7 +13,7 @@ import reactor.core.publisher.Mono;
 public class TrustedIdentityGatewayFilter implements GlobalFilter, Ordered {
     private final String gatewayServiceToken;
 
-    public TrustedIdentityGatewayFilter(@Value("${gateway.internal-token}") String gatewayServiceToken) {
+    public TrustedIdentityGatewayFilter(@Value("${gateway.service-token}") String gatewayServiceToken) {
         this.gatewayServiceToken = gatewayServiceToken;
     }
 
@@ -38,11 +38,15 @@ public class TrustedIdentityGatewayFilter implements GlobalFilter, Ordered {
     }
 
     private ServerWebExchange withTrustedHeaders(ServerWebExchange exchange, String userId, String role) {
+        boolean narrationCallback = "/internal/callbacks/job-progress".equals(
+                exchange.getRequest().getPath().pathWithinApplication().value());
         var request = exchange.getRequest().mutate().headers(headers -> {
             headers.remove("X-User-Id");
             headers.remove("X-User-Role");
-            headers.remove("X-Gateway-Service-Token");
-            headers.set("X-Gateway-Service-Token", gatewayServiceToken);
+            if (!narrationCallback) {
+                headers.remove("X-Service-Token");
+                headers.set("X-Service-Token", gatewayServiceToken);
+            }
             if (userId != null && !userId.isBlank()) headers.set("X-User-Id", userId);
             if (role != null && !role.isBlank()) headers.set("X-User-Role", role.replaceFirst("^ROLE_", ""));
         }).build();

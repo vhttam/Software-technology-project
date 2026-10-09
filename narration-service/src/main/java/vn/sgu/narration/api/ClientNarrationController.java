@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/internal/narrations")
@@ -55,10 +56,12 @@ class ClientNarrationService {
     }
 
     public Contracts.NarrationArtifact get(String contentId, String lang, String correlationId) {
-        JobTargetEntity selected = targets.findPublishedByContent(contentId, TargetStatus.PUBLISHED).stream()
+        List<JobTargetEntity> published = targets.findPublishedByContent(contentId, TargetStatus.PUBLISHED);
+        JobTargetEntity selected = published.stream()
                 .filter(target -> target.getLang().equalsIgnoreCase(lang)).findFirst()
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "NARRATION_NOT_FOUND",
-                        "Chưa có thuyết minh PUBLISHED cho ngôn ngữ đã chọn"));
+                        "Chưa có thuyết minh PUBLISHED cho ngôn ngữ đã chọn",
+                        Map.of("availableLangs", availableLanguages(published))));
         if (selected.getTranslationId() == null || selected.getAudioId() == null) {
             throw new AppException(HttpStatus.SERVICE_UNAVAILABLE, "NARRATION_ARTIFACT_UNAVAILABLE",
                     "Artifact của target PUBLISHED chưa sẵn sàng");
@@ -74,5 +77,13 @@ class ClientNarrationService {
         }
         return new Contracts.NarrationArtifact(selected.getLang(), selected.getJob().getContentVersion(),
                 translated.textContent(), signedUrl.audioUrl(), signedUrl.expiresAt());
+    }
+
+    private static List<String> availableLanguages(List<JobTargetEntity> published) {
+        LinkedHashMap<String, String> unique = new LinkedHashMap<>();
+        published.stream().map(JobTargetEntity::getLang)
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .forEach(lang -> unique.putIfAbsent(lang.toLowerCase(Locale.ROOT), lang));
+        return List.copyOf(unique.values());
     }
 }

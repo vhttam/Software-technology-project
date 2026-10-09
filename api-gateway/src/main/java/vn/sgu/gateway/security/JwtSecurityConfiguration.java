@@ -12,9 +12,12 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthenticationToken;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.authentication.ServerAuthenticationConverter;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.web.server.ServerAuthenticationEntryPoint;
 import org.springframework.security.web.server.authorization.ServerAccessDeniedHandler;
 import org.springframework.util.StringUtils;
@@ -57,8 +60,28 @@ public class JwtSecurityConfiguration {
     }
 
     @Bean
+    ServerAuthenticationConverter bearerTokenConverter() {
+        return exchange -> {
+            String path = exchange.getRequest().getPath().value();
+            String accessToken = exchange.getRequest().getQueryParams().getFirst("accessToken");
+            if (path.matches("^/api/v1/jobs/[^/]+/events$") && StringUtils.hasText(accessToken)) {
+                return Mono.just(new BearerTokenAuthenticationToken(accessToken));
+            }
+            String authorization = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+            if (StringUtils.hasText(authorization) && authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
+                String headerToken = authorization.substring(7).trim();
+                if (StringUtils.hasText(headerToken)) {
+                    return Mono.just(new BearerTokenAuthenticationToken(headerToken));
+                }
+            }
+            return Mono.empty();
+        };
+    }
+
+    @Bean
     SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http,
             Converter<Jwt, Mono<AbstractAuthenticationToken>> converter,
+            ServerAuthenticationConverter bearerTokenConverter,
             GatewayErrorWriter errors) {
         ServerAuthenticationEntryPoint entryPoint = (exchange, ex) -> errors.write(exchange, 401,
                 "UNAUTHORIZED", "Thiếu hoặc access token không hợp lệ/hết hạn");
@@ -71,12 +94,14 @@ public class JwtSecurityConfiguration {
                 .logout(ServerHttpSecurity.LogoutSpec::disable)
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))
                 .authorizeExchange(auth -> auth
-                        .pathMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .pathMatchers(HttpMethod.POST, "/internal/jobs/progress").permitAll()
+                        .pathMatchers("/health", "/actuator/health", "/actuator/health/**").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/internal/callbacks/job-progress").permitAll()
                         .pathMatchers("/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/client/**").permitAll()
                         .pathMatchers("/api/v1/**").hasRole("CONTENT_ADMIN")
                         .anyExchange().denyAll())
-                .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(converter)))
+                .oauth2ResourceServer(oauth -> oauth
+                        .bearerTokenConverter(bearerTokenConverter)
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(converter)))
                 .build();
     }
 

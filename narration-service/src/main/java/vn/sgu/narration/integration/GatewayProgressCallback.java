@@ -12,20 +12,20 @@ import vn.sgu.narration.api.Contracts;
 public class GatewayProgressCallback {
     private static final Logger log = LoggerFactory.getLogger(GatewayProgressCallback.class);
     private final RestClient gateway;
-    private final String internalToken;
+    private final String serviceToken;
 
     public GatewayProgressCallback(RestClient.Builder builder,
             @Value("${app.downstream.api-gateway-url}") String gatewayUrl,
-            @Value("${app.downstream.internal-token}") String internalToken) {
+            @Value("${app.downstream.service-token}") String serviceToken) {
         this.gateway = builder.baseUrl(gatewayUrl).build();
-        this.internalToken = internalToken;
+        this.serviceToken = serviceToken;
     }
 
     @TransactionalEventListener
     public void sendAfterCommit(Contracts.JobProgressEvent event) {
         try {
-            gateway.post().uri("/internal/jobs/progress")
-                    .header("X-Internal-Token", internalToken)
+            gateway.post().uri("/internal/callbacks/job-progress")
+                    .header("X-Service-Token", serviceToken)
                     .header("X-Correlation-ID", event.correlationId())
                     .body(event).retrieve().toBodilessEntity();
         } catch (Exception ex) {

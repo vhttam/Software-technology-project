@@ -28,7 +28,7 @@ public final class Contracts {
             String jobId, String contentId, int version, String status,
             Instant createdAt, Instant updatedAt, List<TargetView> targets) {}
 
-    public record ContentCheck(String contentId, Integer version, Boolean isDeleted) {}
+    public record ContentCheck(String contentId, Integer version, String sourceLang) {}
     public record VoiceGroup(String lang, List<String> voices) {}
     public record VoiceCatalog(List<VoiceGroup> supportedVoices) {}
     public record TranslationView(String translationId, String contentId, Integer version,

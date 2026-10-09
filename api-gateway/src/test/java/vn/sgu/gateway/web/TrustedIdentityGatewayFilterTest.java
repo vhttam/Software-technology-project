@@ -27,7 +27,7 @@ class TrustedIdentityGatewayFilterTest {
         var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/jobs")
                 .header("X-User-Id", "spoofed")
                 .header("X-User-Role", "ADMIN")
-                .header("X-Gateway-Service-Token", "spoofed-token")
+                .header("X-Service-Token", "spoofed-token")
                 .build()).mutate().principal(Mono.just(authentication)).build();
         AtomicReference<org.springframework.web.server.ServerWebExchange> forwarded = new AtomicReference<>();
 
@@ -39,7 +39,7 @@ class TrustedIdentityGatewayFilterTest {
         var headers = forwarded.get().getRequest().getHeaders();
         assertThat(headers.getFirst("X-User-Id")).isEqualTo("user-7");
         assertThat(headers.getFirst("X-User-Role")).isEqualTo("CONTENT_ADMIN");
-        assertThat(headers.getFirst("X-Gateway-Service-Token")).isEqualTo("trusted-token");
+        assertThat(headers.getFirst("X-Service-Token")).isEqualTo("trusted-token");
     }
 
     @Test
@@ -58,6 +58,24 @@ class TrustedIdentityGatewayFilterTest {
         var headers = forwarded.get().getRequest().getHeaders();
         assertThat(headers.getFirst("X-User-Id")).isNull();
         assertThat(headers.getFirst("X-User-Role")).isNull();
-        assertThat(headers.getFirst("X-Gateway-Service-Token")).isEqualTo("trusted-token");
+        assertThat(headers.getFirst("X-Service-Token")).isEqualTo("trusted-token");
+    }
+
+    @Test
+    void preservesNarrationServiceTokenForInternalProgressCallback() {
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.post("/internal/callbacks/job-progress")
+                .header("X-User-Id", "spoofed")
+                .header("X-Service-Token", "narration-token")
+                .build());
+        AtomicReference<org.springframework.web.server.ServerWebExchange> forwarded = new AtomicReference<>();
+
+        filter.filter(exchange, next -> {
+            forwarded.set(next);
+            return Mono.empty();
+        }).block();
+
+        var headers = forwarded.get().getRequest().getHeaders();
+        assertThat(headers.getFirst("X-User-Id")).isNull();
+        assertThat(headers.getFirst("X-Service-Token")).isEqualTo("narration-token");
     }
 }

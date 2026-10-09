@@ -42,16 +42,19 @@ public class NarrationDependencies {
 
     public Contracts.ContentCheck validateContentForJob(String contentId, String correlationId) {
         if (mocksEnabled) {
-            if (contentId.startsWith("missing-")) throw notFound("CONTENT_NOT_FOUND", "Nội dung không tồn tại hoặc đã bị xóa mềm");
-            return new Contracts.ContentCheck(contentId, 3, contentId.startsWith("deleted-"));
+            if (contentId.startsWith("missing-") || contentId.startsWith("deleted-")) {
+                throw notFound("CONTENT_NOT_FOUND", "Nội dung không tồn tại hoặc đã bị xóa mềm");
+            }
+            return new Contracts.ContentCheck(contentId, 3, "vi");
         }
         try {
-            ApiEnvelope<Contracts.ContentCheck> response = content.post()
-                    .uri("/internal/contents/for-job")
+            ApiEnvelope<Contracts.ContentCheck> response = content.get()
+                    .uri("/internal/contents/{contentId}/current", contentId)
                     .headers(headers -> addInternalHeaders(headers, correlationId))
-                    .body(Map.of("contentId", contentId))
                     .retrieve().body(CONTENT_CHECK);
-            if (response == null || response.data() == null) {
+            if (response == null || response.data() == null || !contentId.equals(response.data().contentId())
+                    || response.data().version() == null || response.data().version() < 1
+                    || response.data().sourceLang() == null || response.data().sourceLang().isBlank()) {
                 throw unavailable("CONTENT_SERVICE_UNAVAILABLE", "Content Service trả dữ liệu không hợp lệ",
                         new IllegalStateException("Empty content check response"));
             }

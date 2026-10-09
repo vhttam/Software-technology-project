@@ -12,7 +12,8 @@ try {
     if (-not $env:RABBITMQ_PORT) { $env:RABBITMQ_PORT = '5672' }
     if (-not $env:RABBITMQ_USERNAME) { $env:RABBITMQ_USERNAME = 'admin' }
     if (-not $env:RABBITMQ_PASSWORD) { $env:RABBITMQ_PASSWORD = 'admin_dev_password' }
-    if (-not $env:INTERNAL_SERVICE_TOKEN) { $env:INTERNAL_SERVICE_TOKEN = 'local_internal_token_change_me' }
+    if (-not $env:GATEWAY_SERVICE_TOKEN) { $env:GATEWAY_SERVICE_TOKEN = 'local_gateway_token_change_me' }
+    if (-not $env:NARRATION_SERVICE_TOKEN) { $env:NARRATION_SERVICE_TOKEN = 'local_narration_token_change_me' }
     if (-not $env:APP_MOCKS_ENABLED) { $env:APP_MOCKS_ENABLED = 'true' }
     if (-not $env:API_GATEWAY_URL) { $env:API_GATEWAY_URL = 'http://localhost:8080' }
 

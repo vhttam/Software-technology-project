@@ -3,6 +3,9 @@ package vn.sgu.gateway.security;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthenticationToken;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
 
 import java.util.List;
 
@@ -43,5 +46,21 @@ class JwtSecurityConfigurationTest {
 
         assertThat(authentication.getName()).isEqualTo("subject-id");
         assertThat(authentication.getAuthorities()).isEmpty();
+    }
+
+    @Test
+    void queryAccessTokenIsAcceptedOnlyForJobEventStream() {
+        var converter = configuration.bearerTokenConverter();
+        var sse = MockServerWebExchange.from(MockServerHttpRequest
+                .get("/api/v1/jobs/job-1/events?accessToken=sse-token").build());
+        var ordinaryApi = MockServerWebExchange.from(MockServerHttpRequest
+                .get("/api/v1/jobs/job-1?accessToken=query-token").build());
+
+        var sseAuthentication = converter.convert(sse).block();
+        var ordinaryAuthentication = converter.convert(ordinaryApi).block();
+
+        assertThat(sseAuthentication).isInstanceOf(BearerTokenAuthenticationToken.class);
+        assertThat(((BearerTokenAuthenticationToken) sseAuthentication).getToken()).isEqualTo("sse-token");
+        assertThat(ordinaryAuthentication).isNull();
     }
 }
