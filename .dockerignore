@@ -1,0 +1,7 @@
+**
+!api-gateway/
+!api-gateway/target/
+!api-gateway/target/api-gateway-0.1.0.jar
+!narration-service/
+!narration-service/target/
+!narration-service/target/narration-service-0.1.0.jar

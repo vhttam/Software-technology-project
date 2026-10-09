@@ -1,0 +1,70 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: narration-create
+              uri: ${NARRATION_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/jobs
+                - Method=POST
+            - id: narration-job-read
+              uri: ${NARRATION_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/jobs/{jobId}
+                - Method=GET
+            - id: narration-job-cancel
+              uri: ${NARRATION_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/jobs/{jobId}/cancel
+                - Method=POST
+            - id: narration-voices
+              uri: ${NARRATION_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/voices
+                - Method=GET
+            - id: auth-api
+              uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/auth/**
+            - id: content-api
+              uri: ${CONTENT_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/pois/**,/api/v1/contents/**,/api/v1/languages/source
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+gateway:
+  jwt:
+    public-key-location: ${JWT_PUBLIC_KEY_PATH:file:./infrastructure/keys/jwt-public.pem}
+    jwk-set-uri: ${JWT_JWK_SET_URI:}
+  service-token: ${GATEWAY_SERVICE_TOKEN:local_gateway_token_change_me}
+  service-tokens:
+    narration: ${NARRATION_SERVICE_TOKEN:local_narration_token_change_me}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  services:
+    content-url: ${CONTENT_SERVICE_URL:http://localhost:8083}
+    narration-url: ${NARRATION_SERVICE_URL:http://localhost:8082}
+  client:
+    mocks:
+      enabled: ${APP_MOCKS_ENABLED:false}
+
+logging:
+  level:
+    vn.sgu.gateway: INFO
