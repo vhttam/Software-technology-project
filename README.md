@@ -144,24 +144,26 @@ Từ thư mục gốc, chạy test/build độc lập cho từng service bằng 
 
 ## CI/CD và deploy Staging
 
-Hai workflow trong `.github/workflows` lọc theo paths để chỉ chạy Maven Wrapper cho service có thay đổi. Với Pull Request, workflow luôn báo check phát hiện paths; check `Verify api-gateway` chỉ chạy khi PR chạm Gateway. API Gateway đã chuyển sang phát hành JAR: sau khi Pull Request xanh được merge vào `main`, workflow chạy CI lại; nếu xanh, CD tự động chép JAR bằng SSH vào release mới, đổi symlink `current`, restart systemd và kiểm tra `GET /health`. Health check lỗi sẽ khôi phục release trước. Có thể chạy lại hoặc rollback riêng một service bằng `workflow_dispatch` từ `main`; thao tác này không phải điều kiện phát hành. Branch protection trên GitHub phải yêu cầu cả `Detect api-gateway changes` và `Verify api-gateway` trước khi merge.
+Hai workflow trong `.github/workflows` lọc paths theo service. Với Pull Request, mỗi workflow luôn báo check phát hiện paths; check `Verify <service>` chỉ chạy khi PR chạm service đó. Cả hai service phát hành JAR riêng: sau khi Pull Request xanh được merge vào `main`, CI chạy lại trên main; nếu xanh, CD tự động chép JAR qua SSH vào release mới, đổi symlink `current`, restart systemd và kiểm tra `GET /health`. Health check lỗi sẽ khôi phục release trước. Có thể chạy lại hoặc rollback riêng một service bằng `workflow_dispatch` từ `main`; thao tác này không phải điều kiện phát hành. Branch protection trên GitHub cần yêu cầu bốn check `Detect api-gateway changes`, `Verify api-gateway`, `Detect narration-service changes` và `Verify narration-service` trước khi merge.
 
-Narration Service vẫn dùng workflow Docker hiện tại và sẽ được chuyển riêng ở đợt tiếp theo. Hai module này là các service duy nhất có mã nguồn trong checkout; Auth, Content, Translation và TTS chưa có implementation tương ứng.
+Auth, Content, Translation và TTS chưa có implementation tương ứng trong checkout.
 
 ### Chuẩn bị máy Staging
 
-Gateway cần Linux, Java 17, systemd, `curl`, các service downstream, SQL Server và RabbitMQ có thể truy cập từ host. Tài khoản SSH phải ghi được vào `/opt/sgu/api-gateway/releases` và được cấp quyền `sudo` không tương tác, giới hạn để restart `sgu-api-gateway.service`. Cài unit systemd và file cấu hình trước khi bật workflow:
+Staging cần Linux, Java 17, systemd, `curl`, các service downstream, SQL Server và RabbitMQ có thể truy cập từ host. Dùng tài khoản `sgu` cho SSH để tài khoản systemd đọc được JAR trong release; cấp `sudo` không tương tác, giới hạn để restart hai service unit. Cài unit systemd, thư mục release và file cấu hình trước khi bật workflow:
 
 ```bash
 sudo install -o root -g root -m 0644 infrastructure/systemd/sgu-api-gateway.service /etc/systemd/system/
-sudo install -d -o sgu -g sgu -m 0750 /opt/sgu/api-gateway/releases /etc/sgu /opt/sgu/keys
+sudo install -o root -g root -m 0644 infrastructure/systemd/sgu-narration-service.service /etc/systemd/system/
+sudo install -d -o sgu -g sgu -m 0750 /opt/sgu/api-gateway/releases /opt/sgu/narration-service/releases /etc/sgu /opt/sgu/keys
 sudo install -o sgu -g sgu -m 0640 infrastructure/systemd/api-gateway.env.example /etc/sgu/api-gateway.env
+sudo install -o sgu -g sgu -m 0640 infrastructure/systemd/narration-service.env.example /etc/sgu/narration-service.env
 sudo install -o sgu -g sgu -m 0640 /duong-dan-an-toan/jwt-public.pem /opt/sgu/keys/jwt-public.pem
 sudo systemctl daemon-reload
-sudo systemctl enable sgu-api-gateway.service
+sudo systemctl enable sgu-api-gateway.service sgu-narration-service.service
 ```
 
-Tài khoản chạy unit là `sgu`; bảo đảm tài khoản này tồn tại và có quyền đọc cấu hình/JWT public key. Trước lần phát hành JAR đầu tiên, dừng deployment Docker cũ để giải phóng cổng 8080 và kiểm tra unit `/health`. Đặt mật khẩu thật cho SQL Server/RabbitMQ và hai service token. `GATEWAY_SERVICE_TOKEN` phải giống nhau trong hai file vì Narration xác thực lời gọi từ Gateway; `NARRATION_SERVICE_TOKEN` cũng phải giống nhau trong hai file vì Gateway xác thực callback từ Narration. Hai token phải khác nhau. Không commit file môi trường hoặc private key.
+Tài khoản chạy unit và SSH deploy là `sgu`; bảo đảm tài khoản này có quyền đọc cấu hình/JWT public key và restart hai unit. Trước lần phát hành JAR đầu tiên, dừng deployment Docker cũ để giải phóng cổng 8080/8082 và kiểm tra hai endpoint `/health`. Đặt mật khẩu thật cho SQL Server/RabbitMQ và hai service token. `GATEWAY_SERVICE_TOKEN` phải giống nhau trong hai file vì Narration xác thực lời gọi từ Gateway; `NARRATION_SERVICE_TOKEN` cũng phải giống nhau trong hai file vì Gateway xác thực callback từ Narration. Hai token phải khác nhau. Không commit file môi trường hoặc private key.
 
 ### GitHub environment `staging`
 
@@ -172,4 +174,4 @@ Tạo environment `staging` trong **Settings → Environments** và đặt các 
 - `STAGING_SSH_KEY`: private SSH key của tài khoản trên.
 - `STAGING_KNOWN_HOSTS`: host key Staging đã xác minh, định dạng OpenSSH `host key-type public-key`.
 
-Narration workflow cũ vẫn cần `GHCR_USERNAME` và `GHCR_READ_TOKEN` để kéo image cho đến khi workflow đó được chuyển sang JAR. Log Gateway xem bằng `journalctl -u sgu-api-gateway`; log Narration hiện xem bằng `docker logs sgu-narration-service`.
+Hai workflow cùng dùng bốn secrets trong environment `staging`. Log service xem bằng `journalctl -u sgu-api-gateway` và `journalctl -u sgu-narration-service`.

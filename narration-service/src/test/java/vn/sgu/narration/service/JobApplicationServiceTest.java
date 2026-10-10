@@ -162,8 +162,12 @@ class JobApplicationServiceTest {
         active.setStatus(JobStatus.PROCESSING, Instant.now());
         active.addTarget(new JobTargetEntity("t-en", "en", "en-voice", Instant.now()));
         when(jobs.findByContentVersionAndStatuses(anyString(), anyInt(), anyList())).thenReturn(List.of(active));
-        assertAppException(HttpStatus.CONFLICT, "ACTIVE_JOB_EXISTS", () ->
-                service.create("user-1", "corr-1", "idem-1", request("content-1", enTarget())));
+        assertThatThrownBy(() -> service.create("user-1", "corr-1", "idem-1", request("content-1", enTarget())))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.status()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(ex.errorCode()).isEqualTo("ACTIVE_JOB_EXISTS");
+                    assertThat(ex.details()).isEqualTo(java.util.Map.of("jobIds", List.of("j-active")));
+                });
 
         when(jdbc.queryForObject(anyString(), eq(Integer.class), any(Object[].class))).thenReturn(-1);
         assertAppException(HttpStatus.SERVICE_UNAVAILABLE, "IDEMPOTENCY_LOCK_UNAVAILABLE", () ->
@@ -176,12 +180,8 @@ class JobApplicationServiceTest {
                 "user-2", "corr-2", null, Instant.now());
         active.setStatus(JobStatus.PROCESSING, Instant.now());
         active.addTarget(new JobTargetEntity("t-en", "en", "en-voice", Instant.now()));
-        NarrationJobEntity activeOther = new NarrationJobEntity("j-active-other", "content-1", 3,
-                "user-3", "corr-3", null, Instant.now());
-        activeOther.setStatus(JobStatus.PROCESSING, Instant.now());
-        activeOther.addTarget(new JobTargetEntity("t-en-other", "en", "en-voice", Instant.now()));
         when(jobs.findByContentVersionAndStatuses(anyString(), anyInt(), anyList()))
-                .thenReturn(List.of(active, activeOther));
+                .thenReturn(List.of(active));
         when(jobs.findById("j-active")).thenReturn(Optional.of(active));
         Contracts.CreateJobRequest retry = new Contracts.CreateJobRequest("content-1", "j-active", List.of(enTarget()));
 
@@ -189,6 +189,19 @@ class JobApplicationServiceTest {
 
         assertThat(created.status()).isEqualTo("PENDING");
         verify(jobs).saveAndFlush(argThat(job -> "j-active".equals(job.getRetryOfJobId())));
+
+        NarrationJobEntity activeOther = new NarrationJobEntity("j-active-other", "content-1", 3,
+                "user-3", "corr-3", null, Instant.now());
+        activeOther.setStatus(JobStatus.PROCESSING, Instant.now());
+        activeOther.addTarget(new JobTargetEntity("t-en-other", "en", "en-voice", Instant.now()));
+        when(jobs.findByContentVersionAndStatuses(anyString(), anyInt(), anyList()))
+                .thenReturn(List.of(active, activeOther));
+        assertThatThrownBy(() -> service.create("user-1", "corr-1", "idem-retry-conflict", retry))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.status()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(ex.errorCode()).isEqualTo("ACTIVE_JOB_EXISTS");
+                    assertThat(ex.details()).isEqualTo(java.util.Map.of("jobIds", List.of("j-active-other")));
+                });
 
         NarrationJobEntity stale = new NarrationJobEntity("j-old", "content-1", 2,
                 "user-2", "corr-2", null, Instant.now());

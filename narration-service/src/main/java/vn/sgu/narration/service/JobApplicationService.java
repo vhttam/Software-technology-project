@@ -150,14 +150,18 @@ public class JobApplicationService {
         List<NarrationJobEntity> activeJobs = jobRepository.findByContentVersionAndStatuses(
                 request.contentId(), version, ACTIVE_STATUSES);
         String permittedRetryJob = validateRetryReference(request, version);
-        if (permittedRetryJob == null) for (NarrationJobEntity active : activeJobs) {
-            for (Contracts.TargetInput input : request.targets()) {
-                if (active.getTargets().stream().anyMatch(t -> t.getLang().equalsIgnoreCase(input.lang()))) {
-                    throw new AppException(HttpStatus.CONFLICT, "ACTIVE_JOB_EXISTS",
-                            "Đã có job đang xử lý cho nội dung, phiên bản và ngôn ngữ này",
-                            Map.of("jobId", active.getJobId()));
-                }
-            }
+        List<String> conflictingJobIds = activeJobs.stream()
+                .filter(active -> !Objects.equals(active.getJobId(), permittedRetryJob))
+                .filter(active -> request.targets().stream().anyMatch(input -> active.getTargets().stream()
+                        .anyMatch(target -> target.getLang().equalsIgnoreCase(input.lang()))))
+                .map(NarrationJobEntity::getJobId)
+                .distinct()
+                .sorted()
+                .toList();
+        if (!conflictingJobIds.isEmpty()) {
+            throw new AppException(HttpStatus.CONFLICT, "ACTIVE_JOB_EXISTS",
+                    "Đã có job đang xử lý cho nội dung, phiên bản và ngôn ngữ này",
+                    Map.of("jobIds", conflictingJobIds));
         }
 
         String jobId = "j-" + UUID.randomUUID().toString().replace("-", "");
