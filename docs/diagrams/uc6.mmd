@@ -1,0 +1,42 @@
+flowchart TB
+    subgraph DEV["Lập trình viên"]
+      push["Push branch hoặc mở Pull Request"]
+      merge["Merge Pull Request vào main"]
+    end
+    subgraph CI["GitHub Actions — pipeline riêng mỗi service"]
+      paths["Paths filter chọn service;<br/>concurrency riêng theo service"]
+      ci["CI: ./mvnw clean verify<br/>chỉ service thay đổi"]
+      prGreen{"CI trên PR xanh?"}
+      mainCi["Sau merge, CI chạy lại trên main"]
+      mainGreen{"CI trên main xanh?"}
+      jar["CD tự động build JAR;<br/>không cần kích hoạt"]
+      ssh["SSH chép JAR vào release mới"]
+      link["Chuyển symlink current"]
+      restart["Restart systemd; gọi GET /health"]
+      health{"Health check trả 200?"}
+      rollback["Khôi phục symlink release trước;<br/>restart systemd"]
+      done["Báo phát hành thành công cho nhóm"]
+      prFail["E1: báo lỗi trên PR/branch;<br/>không merge, không phát hành"]
+      mainFail["E4: CD không chạy;<br/>báo nhóm sửa tiếp trên main"]
+      deployFail["E3: báo lỗi sau rollback"]
+    end
+    subgraph OPS["DevOps Engineer"]
+      dispatch["workflow_dispatch từ main:<br/>chạy lại service hoặc rollback"]
+    end
+    push --> paths --> ci --> prGreen
+    prGreen -- "Không" --> prFail
+    prGreen -- "Có; branch protection bắt buộc xanh" --> merge
+    merge --> mainCi --> mainGreen
+    mainGreen -- "Không" --> mainFail
+    mainGreen -- "Có" --> jar --> ssh --> link --> restart --> health
+    health -- "Có" --> done
+    health -- "Không" --> rollback --> deployFail
+    dispatch -. "đường khôi phục thủ công;<br/>không phải điều kiện phát hành" .-> rollback
+    classDef action fill:#fff9c4,stroke:#9e9d24,color:#222
+    classDef decision fill:#fffde7,stroke:#9e9d24,color:#222
+    classDef success fill:#e8f5e9,stroke:#388e3c,color:#222
+    classDef error fill:#ffebee,stroke:#c62828,color:#222
+    class push,merge,paths,ci,mainCi,jar,ssh,link,restart,rollback,dispatch action
+    class prGreen,mainGreen,health decision
+    class done success
+    class prFail,mainFail,deployFail error

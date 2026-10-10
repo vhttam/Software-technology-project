@@ -35,9 +35,9 @@ public class ProgressController {
             @RequestHeader(value = "X-Service-Token", required = false) String token,
             @Valid @RequestBody JobProgressEvent event) {
         if (!StringUtils.hasText(token) || !MessageDigest.isEqual(expectedToken, token.getBytes(StandardCharsets.UTF_8))) {
-            return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
+            return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
         }
         hub.publish(event);
-        return Mono.just(ResponseEntity.accepted().build());
+        return Mono.just(ResponseEntity.ok().build());
     }
 }
