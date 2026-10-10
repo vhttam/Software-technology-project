@@ -43,7 +43,7 @@ Chạy build và kiểm tra module:
 
 ## CI/CD Staging
 
-Workflow [`.github/workflows/api-gateway.yml`](.github/workflows/api-gateway.yml) chạy Maven Wrapper cho thay đổi liên quan API Gateway. Pull Request cần các check Gateway thành công trước khi merge. Sau khi merge vào `main`, workflow chạy lại, tạo JAR và deploy qua SSH lên Staging; quy trình chuyển symlink `current`, restart systemd, kiểm tra `GET /health` và rollback release trước nếu health check thất bại. `workflow_dispatch` trên `main` hỗ trợ chạy lại hoặc rollback.
+Workflow [`.github/workflows/api-gateway.yml`](.github/workflows/api-gateway.yml) chạy Maven Wrapper cho thay đổi liên quan API Gateway. Pull Request cần các check Gateway thành công trước khi merge. Sau khi merge vào `main`, workflow chạy lại Maven verification. Mặc định, deploy và rollback Staging được bỏ qua. Khi đã có máy Staging và cấu hình SSH, đặt repository variable `STAGING_DEPLOY_ENABLED` thành `true` để bật deploy JAR qua SSH, chuyển symlink `current`, restart systemd, kiểm tra `GET /health` và tự rollback nếu health check thất bại. `workflow_dispatch` trên `main` hỗ trợ chạy lại hoặc rollback khi deploy được bật.
 
 Workflow dùng GitHub Environment `staging` với các secrets `STAGING_HOST`, `STAGING_USER`, `STAGING_SSH_KEY` và `STAGING_KNOWN_HOSTS`. Máy Staging cần Linux, Java 17, systemd, `curl` và unit [`infrastructure/systemd/sgu-api-gateway.service`](infrastructure/systemd/sgu-api-gateway.service). Mẫu biến môi trường nằm tại [`infrastructure/systemd/api-gateway.env.example`](infrastructure/systemd/api-gateway.env.example).
 

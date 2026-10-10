@@ -87,7 +87,7 @@ jobs:
   deploy:
     name: Deploy api-gateway to Staging
     needs: verify
-    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy' && github.ref == 'refs/heads/main') }}
+    if: ${{ vars.STAGING_DEPLOY_ENABLED == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy' && github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-latest
     environment: staging
     steps:
@@ -206,7 +206,7 @@ jobs:
 
   rollback:
     name: Roll back api-gateway in Staging
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'rollback' && github.ref == 'refs/heads/main' }}
+    if: ${{ vars.STAGING_DEPLOY_ENABLED == 'true' && github.event_name == 'workflow_dispatch' && inputs.operation == 'rollback' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     environment: staging
     steps:
