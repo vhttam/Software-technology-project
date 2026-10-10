@@ -1,0 +1,43 @@
+flowchart LR
+    subgraph GIT["GitHub repository"]
+      direction TB
+      event["Push / Pull Request"] --> paths["Paths filter;<br/>chỉ chạy service thay đổi"]
+      paths --> ci["./mvnw clean verify<br/>CI theo service"]
+      ci --> prGreen{"PR CI xanh?"}
+      prGreen -- "Không" --> noMerge["Không merge;<br/>không phát hành"]
+      prGreen -- "Có" --> gate["Branch protection<br/>bắt buộc check xanh"]
+      gate --> merge["Merge vào main"]
+      merge --> mainCi["CI chạy lại trên main"]
+      mainCi --> mainGreen{"CI xanh?"}
+      mainGreen -- "Không" --> mainError["Không chạy CD;<br/>báo nhóm sửa trên main"]
+      mainGreen -- "Có" --> jar["Tự động build JAR"]
+    end
+    subgraph ACTIONS["GitHub Actions environment: staging"]
+      direction TB
+      secrets["SSH secrets:<br/>STAGING_HOST, STAGING_USER,<br/>private key, known_hosts"]
+      concurrency["Concurrency theo service;<br/>phát hành không chạy chồng"]
+      upload["SSH/SCP chép JAR<br/>vào release mới"]
+      secrets -. "chỉ job deploy đọc" .-> upload
+      concurrency --> upload
+    end
+    subgraph HOST["Máy Staging Linux"]
+      direction TB
+      release["releases/{service}/{run}"] --> previous["Ghi nhận current hiện tại<br/>làm release trước"]
+      previous --> current["Đổi symlink current nguyên tử"]
+      current --> systemd["systemd restart service"]
+      systemd --> health["GET /health trả 200?"]
+      health -- "Có" --> success["Giữ release mới;<br/>báo nhóm thành công"]
+      health -- "Không" --> restore["Khôi phục symlink current<br/>về release trước"]
+      restore --> restart["Restart systemd;<br/>báo nhóm rollback"]
+    end
+    jar --> concurrency
+    upload --> release
+    devops["DevOps Engineer: workflow_dispatch<br/>từ main để chạy lại service/rollback"] -. "khôi phục thủ công;<br/>không phải trigger phát hành" .-> restore
+    classDef action fill:#fff9c4,stroke:#9e9d24,color:#222
+    classDef decision fill:#fffde7,stroke:#9e9d24,color:#222
+    classDef success fill:#e8f5e9,stroke:#388e3c,color:#222
+    classDef error fill:#ffebee,stroke:#c62828,color:#222
+    class event,paths,ci,gate,merge,mainCi,jar,secrets,concurrency,upload,release,previous,current,systemd,restore,restart,devops action
+    class prGreen,mainGreen,health decision
+    class success success
+    class noMerge,mainError,restart error

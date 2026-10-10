@@ -1,0 +1,35 @@
+flowchart TB
+    start((Bắt đầu)) --> method{"Khách tìm POI bằng cách nào?"}
+    method -- "Duyệt" --> list["GET /api/v1/client/pois;<br/>khách chọn poiId"]
+    method -- "Quét QR" --> qr["GET /api/v1/client/qr/{qrCode}"]
+    qr --> qrValid{"QR hợp lệ và POI hoạt động?"}
+    qrValid -- "Không" --> poiError["404 POI_NOT_FOUND"]
+    poiError --> finish((Kết thúc))
+    qrValid -- "Có" --> selected
+    list --> selected["Lấy danh sách thuyết minh:<br/>GET /api/v1/client/pois/{poiId}/narrations"]
+    selected --> active{"POI hoạt động?"}
+    active -- "Không" --> poiError
+    active -- "Có" --> anyPublished{"Có narration PUBLISHED<br/>ở ngôn ngữ nào?"}
+    anyPublished -- "Không" --> empty["200 với narrations: []"]
+    empty --> notice["Thông báo POI chưa có thuyết minh"]
+    notice --> finish
+    anyPublished -- "Có" --> languages["Hiển thị ngôn ngữ PUBLISHED;<br/>khách chọn lang"]
+    languages --> getLang["GET /api/v1/client/pois/{poiId}/narrations/{lang}"]
+    getLang --> available{"Có narration PUBLISHED<br/>cho lang đã chọn?"}
+    available -- "Không" --> noLang["404 NARRATION_NOT_FOUND<br/>kèm details.availableLangs"]
+    noLang --> languages
+    available -- "Có" --> artifact["200: phụ đề và signed audio URL<br/>(hết hạn sau 1 giờ)"]
+    artifact --> playback["Khách phát, tạm dừng<br/>hoặc đổi ngôn ngữ"]
+    playback --> expired{"URL còn hạn?"}
+    expired -- "Có" --> listen["Tiếp tục nghe"]
+    listen --> finish
+    expired -- "Không" --> refresh["Ứng dụng xin artifact/URL mới"]
+    refresh --> getLang
+    classDef action fill:#fff9c4,stroke:#9e9d24,color:#222
+    classDef decision fill:#fffde7,stroke:#9e9d24,color:#222
+    classDef success fill:#e8f5e9,stroke:#388e3c,color:#222
+    classDef error fill:#ffebee,stroke:#c62828,color:#222
+    class list,qr,selected,empty,notice,languages,getLang,noLang,artifact,playback,listen,refresh action
+    class method,qrValid,active,anyPublished,available,expired decision
+    class empty,artifact,listen success
+    class poiError,noLang error
