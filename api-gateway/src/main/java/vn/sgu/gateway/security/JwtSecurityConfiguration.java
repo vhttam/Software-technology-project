@@ -53,8 +53,7 @@ public class JwtSecurityConfiguration {
             }
             List<SimpleGrantedAuthority> authorities = role.isBlank()
                     ? List.of() : List.of(new SimpleGrantedAuthority(role.startsWith("ROLE_") ? role : "ROLE_" + role));
-            String principalName = jwt.getClaimAsString("userId");
-            if (principalName == null || principalName.isBlank()) principalName = jwt.getSubject();
+            String principalName = jwt.getSubject();
             return Mono.just(new JwtAuthenticationToken(jwt, authorities, principalName));
         };
     }

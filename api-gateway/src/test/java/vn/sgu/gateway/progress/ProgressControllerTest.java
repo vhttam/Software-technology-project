@@ -24,7 +24,7 @@ class ProgressControllerTest {
 
         var accepted = controller.callback("narration-service-secret", event).block();
 
-        assertThat(accepted.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(accepted.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(received.await(1, TimeUnit.SECONDS)).isTrue();
         subscription.dispose();
     }
@@ -35,7 +35,7 @@ class ProgressControllerTest {
         JobProgressEvent event = new JobProgressEvent("job.progress", "corr-1",
                 new ProgressData("job-1", "PROCESSING", Instant.now(), List.of()));
 
-        assertThat(controller.callback(null, event).block().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(controller.callback("wrong", event).block().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(controller.callback(null, event).block().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(controller.callback("wrong", event).block().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 }

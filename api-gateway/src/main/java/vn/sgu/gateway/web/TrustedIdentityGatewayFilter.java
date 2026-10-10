@@ -24,14 +24,13 @@ public class TrustedIdentityGatewayFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         return exchange.getPrincipal().ofType(JwtAuthenticationToken.class)
                 .map(auth -> {
-                    String userId = auth.getToken().getClaimAsString("userId");
-                    if (userId == null || userId.isBlank()) userId = auth.getToken().getSubject();
+                    String subjectId = auth.getToken().getSubject();
                     String role = auth.getToken().getClaimAsString("role");
                     if (role == null || role.isBlank()) {
                         var roles = auth.getToken().getClaimAsStringList("roles");
                         role = roles == null || roles.isEmpty() ? "" : roles.get(0);
                     }
-                    return withTrustedHeaders(exchange, userId, role);
+                    return withTrustedHeaders(exchange, subjectId, role);
                 })
                 .defaultIfEmpty(withTrustedHeaders(exchange, null, null))
                 .flatMap(chain::filter);

@@ -37,9 +37,29 @@ class TrustedIdentityGatewayFilterTest {
         }).block();
 
         var headers = forwarded.get().getRequest().getHeaders();
-        assertThat(headers.getFirst("X-User-Id")).isEqualTo("user-7");
+        assertThat(headers.getFirst("X-User-Id")).isEqualTo("subject-id");
         assertThat(headers.getFirst("X-User-Role")).isEqualTo("CONTENT_ADMIN");
         assertThat(headers.getFirst("X-Service-Token")).isEqualTo("trusted-token");
+    }
+
+    @Test
+    void doesNotUseUserIdClaimWhenSubjectIsMissing() {
+        Jwt jwt = Jwt.withTokenValue("jwt")
+                .header("alg", "RS256")
+                .claim("userId", "user-7")
+                .build();
+        JwtAuthenticationToken authentication = new JwtAuthenticationToken(jwt);
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/jobs")
+                .header("X-User-Id", "spoofed")
+                .build()).mutate().principal(Mono.just(authentication)).build();
+        AtomicReference<org.springframework.web.server.ServerWebExchange> forwarded = new AtomicReference<>();
+
+        filter.filter(exchange, next -> {
+            forwarded.set(next);
+            return Mono.empty();
+        }).block();
+
+        assertThat(forwarded.get().getRequest().getHeaders().getFirst("X-User-Id")).isNull();
     }
 
     @Test

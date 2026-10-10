@@ -1,0 +1,43 @@
+flowchart TB
+    start((Bắt đầu)) --> request["Quản trị nội dung gọi POST /api/v1/jobs<br/>với Idempotency-Key"]
+    request --> validate["Narration kiểm tra nội dung hiện hành,<br/>targets, ngôn ngữ và voice"]
+    validate --> valid{"Request và dependency hợp lệ?"}
+    valid -- "Không" --> invalid["400 / 404 / 503<br/>Không tạo job"]
+    invalid --> finish((Kết thúc))
+    valid -- "Có" --> idem{"Idempotency-Key đã dùng?"}
+    idem -- "Cùng payload" --> prior["Trả job đã có"]
+    prior --> finish
+    idem -- "Khác payload" --> idemError["409 IDEMPOTENCY_KEY_REUSED"]
+    idemError --> finish
+    idem -- "Chưa" --> retry{"Có retryOfJobId?"}
+    retry -- "Có" --> checks["Kiểm tra theo thứ tự:<br/>1. Job tồn tại và cùng contentId<br/>2. Version tham chiếu còn hiện hành<br/>3. Có target tương ứng<br/>Sai tham chiếu: 409 INVALID_RETRY_REFERENCE;<br/>version cũ: 409 CONTENT_VERSION_CHANGED"]
+    retry -- "Không" --> conflictCheck
+    checks --> conflictCheck["Tìm mọi job PENDING/PROCESSING xung đột target;<br/>chỉ bỏ qua đúng job được retry"]
+    conflictCheck --> conflict{"Có job xung đột khác?"}
+    conflict -- "Có" --> activeError["409 ACTIVE_JOB_EXISTS<br/>details.jobIds[] chứa mọi job xung đột"]
+    activeError --> finish
+    conflict -- "Không" --> create["Trong transaction:<br/>tạo job và targets PENDING;<br/>lưu Idempotency-Key"]
+    create --> publish["Phát một narration.requested<br/>qua RabbitMQ cho mỗi target"]
+    publish --> work["Mỗi target xử lý độc lập:<br/>Translation → TTS; provider retry tối đa<br/>3 lần sau lần đầu (tổng 4 lần)"]
+    work --> outcome{"Kết quả target?"}
+    outcome -- "Thành công" --> published["Target PUBLISHED"]
+    outcome -- "Hết retry / lỗi cuối" --> failed["Target FAILED; lưu errorCode"]
+    published --> update["Khóa job; lưu target và tổng hợp job<br/>trong cùng transaction"]
+    failed --> update
+    update --> more{"Còn target chưa ở trạng thái cuối?"}
+    more -- "Có" --> work
+    more -- "Không" --> state["Job COMPLETED / PARTIALLY_COMPLETED / FAILED"]
+    state --> progress["Callback tiến độ tới Gateway;<br/>GET job là trạng thái chuẩn, SSE là best-effort"]
+    progress --> finish
+    cancel["Actor hủy khi job PENDING/PROCESSING:<br/>FAILED giữ nguyên, target còn lại CANCELLED"]
+    cancel --> cancelled["Phát narration.cancelled;<br/>Translation/TTS dừng xử lý"]
+    create -. "Yêu cầu hủy trong lúc chạy" .-> cancel
+    cancelled -.-> update
+    classDef action fill:#fff9c4,stroke:#9e9d24,color:#222
+    classDef decision fill:#fffde7,stroke:#9e9d24,color:#222
+    classDef success fill:#e8f5e9,stroke:#388e3c,color:#222
+    classDef error fill:#ffebee,stroke:#c62828,color:#222
+    class request,validate,prior,checks,conflictCheck,create,publish,work,published,failed,update,state,progress,cancel,cancelled action
+    class valid,idem,retry,conflict,outcome,more decision
+    class published,progress success
+    class invalid,idemError,activeError,failed error

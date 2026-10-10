@@ -2,7 +2,7 @@
 
 Repository cho hệ thống thuyết minh đa ngôn ngữ. Hệ thống dự kiến gồm API Gateway, Auth, Content, Narration, Translation và TTS; các service trao đổi qua REST và RabbitMQ. Narration lưu trạng thái job, target và transactional outbox trong SQL Server. Quy ước API/event được mô tả tại [docs/api-contracts.md](docs/api-contracts.md).
 
-Tài liệu UC v2.5, ERD và sequence diagram nguồn được lưu trong [docs/source](docs/source/README.md). Ma trận đối chiếu activity diagram với code và test nằm tại [docs/uc-activity-coverage.md](docs/uc-activity-coverage.md).
+Tài liệu UC v2.7, ERD và sequence diagram nguồn được lưu trong [docs/source](docs/source/README.md). Ma trận đối chiếu activity diagram với code và test nằm tại [docs/uc-activity-coverage.md](docs/uc-activity-coverage.md).
 
 ## Trạng thái mã nguồn trong checkout này
 
@@ -144,34 +144,32 @@ Từ thư mục gốc, chạy test/build độc lập cho từng service bằng 
 
 ## CI/CD và deploy Staging
 
-Hai workflow trong `.github/workflows` chạy Maven Wrapper để build và test khi có thay đổi tương ứng trên branch, cũng như trên pull request vào `main`. Khi commit được merge/push vào `main`, workflow của service bị ảnh hưởng sẽ build Docker image có tag đúng bằng commit SHA, đẩy image lên GitHub Container Registry (GHCR), triển khai image lên Staging và gọi `GET /health` làm smoke test. Nếu smoke test không thành công, workflow khôi phục image đang chạy trước đó. `workflow_dispatch` chỉ chạy bước build/test; deploy tự động chỉ chạy theo push vào `main`.
+Hai workflow trong `.github/workflows` chạy Maven Wrapper khi có thay đổi tương ứng trên branch và Pull Request vào `main`. API Gateway đã chuyển sang phát hành JAR: sau khi Pull Request xanh được merge vào `main`, workflow chạy CI lại; nếu xanh, CD tự động chép JAR bằng SSH vào release mới, đổi symlink `current`, restart systemd và kiểm tra `GET /health`. Health check lỗi sẽ khôi phục release trước. Có thể chạy lại hoặc rollback riêng một service bằng `workflow_dispatch` từ `main`; thao tác này không phải điều kiện phát hành. Branch protection trên GitHub phải yêu cầu check `Verify api-gateway` xanh trước khi merge.
 
-CI/CD chỉ build/deploy API Gateway và Narration Service vì đây là hai module duy nhất có mã nguồn trong checkout. Muốn chạy đủ sáu service theo hướng dẫn ở trên, cần bổ sung Auth, Content, Translation và TTS cùng workflow tương ứng.
+Narration Service vẫn dùng workflow Docker hiện tại và sẽ được chuyển riêng ở đợt tiếp theo. Hai module này là các service duy nhất có mã nguồn trong checkout; Auth, Content, Translation và TTS chưa có implementation tương ứng.
 
 ### Chuẩn bị máy Staging
 
-Staging cần Linux, Docker Engine, `curl`, SQL Server, RabbitMQ và các service downstream có thể truy cập từ host. Hai image dùng host network để kết nối các địa chỉ `127.0.0.1` trong file cấu hình. Tạo trước thư mục và file cấu hình; thay `deploy` bằng tài khoản SSH dùng trong secret `STAGING_USER`. Cấp quyền cho tài khoản này sử dụng Docker và đọc các file cấu hình:
+Gateway cần Linux, Java 17, systemd, `curl`, các service downstream, SQL Server và RabbitMQ có thể truy cập từ host. Tài khoản SSH phải ghi được vào `/opt/sgu/api-gateway/releases` và được cấp quyền `sudo` không tương tác, giới hạn để restart `sgu-api-gateway.service`. Cài unit systemd và file cấu hình trước khi bật workflow:
 
 ```bash
-sudo install -d -o deploy -g deploy -m 0750 /etc/sgu /opt/sgu/keys
-sudo install -o deploy -g deploy -m 0640 infrastructure/systemd/api-gateway.env.example /etc/sgu/api-gateway.env
-sudo install -o deploy -g deploy -m 0640 infrastructure/systemd/narration-service.env.example /etc/sgu/narration-service.env
-sudo install -o deploy -g deploy -m 0640 /duong-dan-an-toan/jwt-public.pem /opt/sgu/keys/jwt-public.pem
-sudoedit /etc/sgu/api-gateway.env
-sudoedit /etc/sgu/narration-service.env
+sudo install -o root -g root -m 0644 infrastructure/systemd/sgu-api-gateway.service /etc/systemd/system/
+sudo install -d -o sgu -g sgu -m 0750 /opt/sgu/api-gateway/releases /etc/sgu /opt/sgu/keys
+sudo install -o sgu -g sgu -m 0640 infrastructure/systemd/api-gateway.env.example /etc/sgu/api-gateway.env
+sudo install -o sgu -g sgu -m 0640 /duong-dan-an-toan/jwt-public.pem /opt/sgu/keys/jwt-public.pem
+sudo systemctl daemon-reload
+sudo systemctl enable sgu-api-gateway.service
 ```
 
-Đặt mật khẩu thật cho SQL Server/RabbitMQ và hai service token. `GATEWAY_SERVICE_TOKEN` phải giống nhau trong hai file vì Narration xác thực lời gọi từ Gateway; `NARRATION_SERVICE_TOKEN` cũng phải giống nhau trong hai file vì Gateway xác thực callback từ Narration. Hai token phải khác nhau. Đặt đúng các URL database, RabbitMQ, Auth/Content/Translation/TTS theo vị trí thực tế; không commit file môi trường hoặc private key. Chuyển public key tới Staging qua kênh an toàn; private key không được đưa vào image. Cấp quyền dùng Docker cho `STAGING_USER` theo hướng dẫn Docker của bản Linux đang chạy.
+Tài khoản chạy unit là `sgu`; bảo đảm tài khoản này tồn tại và có quyền đọc cấu hình/JWT public key. Trước lần phát hành JAR đầu tiên, dừng deployment Docker cũ để giải phóng cổng 8080 và kiểm tra unit `/health`. Đặt mật khẩu thật cho SQL Server/RabbitMQ và hai service token. `GATEWAY_SERVICE_TOKEN` phải giống nhau trong hai file vì Narration xác thực lời gọi từ Gateway; `NARRATION_SERVICE_TOKEN` cũng phải giống nhau trong hai file vì Gateway xác thực callback từ Narration. Hai token phải khác nhau. Không commit file môi trường hoặc private key.
 
-### GitHub repository secrets
+### GitHub environment `staging`
 
-Thêm các secrets dưới **Settings → Secrets and variables → Actions**:
+Tạo environment `staging` trong **Settings → Environments** và đặt các secrets sau trong environment đó:
 
 - `STAGING_HOST`: hostname/IP của Staging.
-- `STAGING_USER`: tài khoản SSH có quyền triển khai bằng Docker.
+- `STAGING_USER`: tài khoản SSH triển khai release và restart systemd.
 - `STAGING_SSH_KEY`: private SSH key của tài khoản trên.
 - `STAGING_KNOWN_HOSTS`: host key Staging đã xác minh, định dạng OpenSSH `host key-type public-key`.
-- `GHCR_USERNAME`: username GitHub dùng để đăng nhập GHCR trên Staging.
-- `GHCR_READ_TOKEN`: GitHub Personal Access Token có quyền `read:packages` để Staging kéo image private. Token được truyền qua SSH bằng stdin, không ghi vào lệnh hoặc log.
 
-Workflow dùng `GITHUB_TOKEN` với quyền `packages:write` để đẩy image. Mỗi lần deploy chạy container với `--restart unless-stopped`; log có thể xem trên máy Staging bằng `docker logs sgu-api-gateway` hoặc `docker logs sgu-narration-service`.
+Narration workflow cũ vẫn cần `GHCR_USERNAME` và `GHCR_READ_TOKEN` để kéo image cho đến khi workflow đó được chuyển sang JAR. Log Gateway xem bằng `journalctl -u sgu-api-gateway`; log Narration hiện xem bằng `docker logs sgu-narration-service`.
