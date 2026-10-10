@@ -11,12 +11,6 @@ on:
       - ".github/workflows/api-gateway.yml"
   pull_request:
     branches: [main]
-    paths:
-      - "api-gateway/**"
-      - ".mvn/**"
-      - "mvnw"
-      - "mvnw.cmd"
-      - ".github/workflows/api-gateway.yml"
   workflow_dispatch:
     inputs:
       operation:
@@ -36,9 +30,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  detect_changes:
+    name: Detect api-gateway changes
+    runs-on: ubuntu-latest
+    outputs:
+      service_changed: ${{ steps.filter.outputs.service_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Filter pull request paths
+        id: filter
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+            if grep -Eq '^(api-gateway/|\.mvn/|mvnw(\.cmd)?$|\.github/workflows/api-gateway\.yml$)' <<< "$changed_files"; then
+              echo "service_changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "service_changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "service_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
   verify:
     name: Verify api-gateway
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.operation == 'deploy' }}
+    needs: detect_changes
+    if: ${{ (github.event_name != 'workflow_dispatch' || inputs.operation == 'deploy') && (github.event_name != 'pull_request' || needs.detect_changes.outputs.service_changed == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

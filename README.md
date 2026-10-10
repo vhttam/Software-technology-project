@@ -144,7 +144,7 @@ Từ thư mục gốc, chạy test/build độc lập cho từng service bằng 
 
 ## CI/CD và deploy Staging
 
-Hai workflow trong `.github/workflows` chạy Maven Wrapper khi có thay đổi tương ứng trên branch và Pull Request vào `main`. API Gateway đã chuyển sang phát hành JAR: sau khi Pull Request xanh được merge vào `main`, workflow chạy CI lại; nếu xanh, CD tự động chép JAR bằng SSH vào release mới, đổi symlink `current`, restart systemd và kiểm tra `GET /health`. Health check lỗi sẽ khôi phục release trước. Có thể chạy lại hoặc rollback riêng một service bằng `workflow_dispatch` từ `main`; thao tác này không phải điều kiện phát hành. Branch protection trên GitHub phải yêu cầu check `Verify api-gateway` xanh trước khi merge.
+Hai workflow trong `.github/workflows` lọc theo paths để chỉ chạy Maven Wrapper cho service có thay đổi. Với Pull Request, workflow luôn báo check phát hiện paths; check `Verify api-gateway` chỉ chạy khi PR chạm Gateway. API Gateway đã chuyển sang phát hành JAR: sau khi Pull Request xanh được merge vào `main`, workflow chạy CI lại; nếu xanh, CD tự động chép JAR bằng SSH vào release mới, đổi symlink `current`, restart systemd và kiểm tra `GET /health`. Health check lỗi sẽ khôi phục release trước. Có thể chạy lại hoặc rollback riêng một service bằng `workflow_dispatch` từ `main`; thao tác này không phải điều kiện phát hành. Branch protection trên GitHub phải yêu cầu cả `Detect api-gateway changes` và `Verify api-gateway` trước khi merge.
 
 Narration Service vẫn dùng workflow Docker hiện tại và sẽ được chuyển riêng ở đợt tiếp theo. Hai module này là các service duy nhất có mã nguồn trong checkout; Auth, Content, Translation và TTS chưa có implementation tương ứng.
 
