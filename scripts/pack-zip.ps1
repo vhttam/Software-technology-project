@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Đóng gói mã nguồn dự án thành file ZIP sạch phục vụ bàn giao và triển khai.
     Tự động loại bỏ .git, build cache, logs, thư mục tạm và các file nhạy cảm.
@@ -44,6 +44,7 @@ $excludePatterns = @(
     '(^|[\\/])\.local-data([\\/]|$)',
     '\.log$',
     '(^|[\\/])\.env$',
+    '(^|[\\/])THONG-TIN-DANG-NHAP\.txt$',
     '\.pk8$',
     '\.key$',
     '\.pem$',

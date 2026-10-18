@@ -27,6 +27,7 @@ if command -v zip &> /dev/null; then
     -x "*.local-data*" \
     -x "*.log" \
     -x ".env" \
+    -x "*THONG-TIN-DANG-NHAP.txt*" \
     -x "*.pk8" \
     -x "*.key" \
     -x "*.pem" \

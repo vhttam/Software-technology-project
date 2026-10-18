@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Dừng toàn bộ container của Hệ thống Thuyết minh Tự động Đa ngôn ngữ.
 #>

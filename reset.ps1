@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Dừng hệ thống và xóa sạch dữ liệu/volume để đưa về trạng thái cài đặt ban đầu.
 #>

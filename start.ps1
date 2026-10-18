@@ -1,22 +1,30 @@
-<#
+﻿<#
 .SYNOPSIS
     Khởi động toàn bộ Hệ thống Thuyết minh Tự động Đa ngôn ngữ bằng Docker.
 .PARAMETER Full
     Sử dụng cấu hình Full (chạy SQL Server thay vì H2). Mặc định là Lite (<4GB RAM).
 .PARAMETER Build
     Buộc biên dịch lại các Docker image trước khi khởi động.
+.PARAMETER Demo
+    Bật chế độ DEMO: Sử dụng mật khẩu admin cố định (ghi trong README), nạp sẵn dữ liệu mẫu.
 #>
 param(
     [switch]$Full,
-    [switch]$Build
+    [switch]$Build,
+    [switch]$Demo
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
 
+$isDemo = $Demo.IsPresent -or ($env:DEMO_MODE -and $env:DEMO_MODE.ToLower() -eq 'true')
+$demoAdminUser = 'admin'
+$demoAdminPass = 'Admin@Demo2026!'
+
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "  HỆ THỐNG THUYẾT MINH TỰ ĐỘNG ĐA NGÔN NGỮ" -ForegroundColor Cyan
-Write-Host "  Chế độ: $(if ($Full) { 'FULL (SQL Server + RabbitMQ)' } else { 'LITE (H2 + RabbitMQ, tối ưu RAM)' })" -ForegroundColor Cyan
+Write-Host "  Cấu trúc: $(if ($Full) { 'FULL (SQL Server + RabbitMQ)' } else { 'LITE (H2 + RabbitMQ, tối ưu RAM)' })" -ForegroundColor Cyan
+Write-Host "  Chế độ:   $(if ($isDemo) { 'DEMO (Mật khẩu cố định, nạp dữ liệu mẫu)' } else { 'TIÊU CHUẨN (Mật khẩu ngẫu nhiên an toàn)' })" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 1. Kiểm tra Docker CLI và Docker daemon
@@ -56,13 +64,31 @@ if ($conflicts.Count -gt 0) {
     Write-Host "Vui lòng giải phóng cổng trên hoặc tắt ứng dụng xung đột trước khi tiếp tục.`n" -ForegroundColor Yellow
 }
 
-# 3. Chuẩn bị file cấu hình .env
+# 3. Chuẩn bị file cấu hình .env và xác định mật khẩu admin
 $envFile = Join-Path $repoRoot '.env'
 $envExample = Join-Path $repoRoot '.env.example'
+$adminUser = $demoAdminUser
+$adminPass = ''
+
 if (!(Test-Path -LiteralPath $envFile)) {
-    Write-Host "[INFO] Chưa tìm thấy file .env. Đang tự động tạo từ .env.example với các khóa bảo mật ngẫu nhiên..." -ForegroundColor Green
+    Write-Host "[INFO] Chưa tìm thấy file .env. Đang tự động tạo từ .env.example..." -ForegroundColor Green
     if (Test-Path -LiteralPath $envExample) {
         $content = Get-Content -LiteralPath $envExample -Raw
+        
+        # Mật khẩu admin: Demo dùng cố định, Tiêu chuẩn sinh ngẫu nhiên an toàn
+        if ($isDemo) {
+            $adminPass = $demoAdminPass
+            $content = $content -replace 'BOOTSTRAP_ADMIN_PASSWORD=.*', "BOOTSTRAP_ADMIN_PASSWORD=$adminPass"
+            $content = $content -replace 'DEMO_MODE=.*', "DEMO_MODE=true"
+        } else {
+            $randomBytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(6)
+            $randomHex = [System.BitConverter]::ToString($randomBytes).Replace('-', '').ToLower()
+            $adminPass = "Admin@" + $randomHex + "!"
+            $content = $content -replace 'BOOTSTRAP_ADMIN_PASSWORD=.*', "BOOTSTRAP_ADMIN_PASSWORD=$adminPass"
+            $content = $content -replace 'DEMO_MODE=.*', "DEMO_MODE=false"
+        }
+
+        # Sinh ngẫu nhiên các bí mật hệ thống và token nội bộ
         $randomSecret = [System.Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)) -replace '[^a-zA-Z0-9]', 'x'
         $content = $content -replace 'local-dev-signing-secret-change-me-32-characters', $randomSecret
         $content = $content -replace 'local-dev-auth-caller-token-change-me', ("tok-auth-" + [Guid]::NewGuid().ToString('N'))
@@ -71,13 +97,88 @@ if (!(Test-Path -LiteralPath $envFile)) {
         $content = $content -replace 'local-dev-translation-caller-token-change-me', ("tok-trans-" + [Guid]::NewGuid().ToString('N'))
         $content = $content -replace 'local-dev-tts-caller-token-change-me', ("tok-tts-" + [Guid]::NewGuid().ToString('N'))
         $content = $content -replace 'local-dev-gateway-caller-token-change-me', ("tok-gw-" + [Guid]::NewGuid().ToString('N'))
+        
         Set-Content -LiteralPath $envFile -Value $content -Encoding utf8
     } else {
         Write-Host "[CẢNH BÁO] Không tìm thấy .env.example, hệ thống sẽ sử dụng các giá trị mặc định nội bộ." -ForegroundColor Yellow
+        $adminPass = if ($isDemo) { $demoAdminPass } else { 'Admin@123456' }
+    }
+} else {
+    # .env đã tồn tại từ lần chạy trước -> đọc lại mật khẩu từ .env hiện tại (không sinh lại)
+    Write-Host "[INFO] Đọc cấu hình từ file .env hiện tại..." -ForegroundColor Gray
+    $envLines = Get-Content -LiteralPath $envFile
+    foreach ($line in $envLines) {
+        if ($line -match '^\s*BOOTSTRAP_ADMIN_USERNAME\s*=\s*(.*)$') { $adminUser = $matches[1].Trim() }
+        if ($line -match '^\s*BOOTSTRAP_ADMIN_PASSWORD\s*=\s*(.*)$') { $adminPass = $matches[1].Trim() }
+    }
+
+    # Nếu người dùng chạy lệnh có cờ -Demo, đồng bộ mật khẩu cố định vào .env để đăng nhập thuận tiện
+    if ($isDemo) {
+        if ($adminPass -ne $demoAdminPass) {
+            $rawEnv = Get-Content -LiteralPath $envFile -Raw
+            if ($rawEnv -match 'BOOTSTRAP_ADMIN_PASSWORD=') {
+                $rawEnv = $rawEnv -replace 'BOOTSTRAP_ADMIN_PASSWORD=.*', "BOOTSTRAP_ADMIN_PASSWORD=$demoAdminPass"
+            } else {
+                $rawEnv += "`nBOOTSTRAP_ADMIN_PASSWORD=$demoAdminPass"
+            }
+            if ($rawEnv -match 'DEMO_MODE=') {
+                $rawEnv = $rawEnv -replace 'DEMO_MODE=.*', "DEMO_MODE=true"
+            } else {
+                $rawEnv += "`nDEMO_MODE=true"
+            }
+            Set-Content -LiteralPath $envFile -Value $rawEnv -Encoding utf8
+        }
+        $adminPass = $demoAdminPass
+    } elseif ([string]::IsNullOrWhiteSpace($adminPass)) {
+        $randomBytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(6)
+        $randomHex = [System.BitConverter]::ToString($randomBytes).Replace('-', '').ToLower()
+        $adminPass = "Admin@" + $randomHex + "!"
+        Add-Content -LiteralPath $envFile -Value "`nBOOTSTRAP_ADMIN_PASSWORD=$adminPass"
     }
 }
 
-# 4. Khởi động Docker Compose
+# 4. Ghi thông tin đăng nhập ra THONG-TIN-DANG-NHAP.txt
+$credFile = Join-Path $repoRoot 'THONG-TIN-DANG-NHAP.txt'
+$nowStr = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+$modeDesc = if ($isDemo) { 'CHẾ ĐỘ DEMO (Mật khẩu cố định, nạp dữ liệu mẫu)' } else { 'CHẾ ĐỘ TIÊU CHUẨN (Mật khẩu ngẫu nhiên an toàn)' }
+$credNote = if ($isDemo) {
+    "CẢNH BÁO DEMO: Mật khẩu '$demoAdminPass' chỉ dùng cho mục đích trình diễn/giảng dạy. TUYỆT ĐỐI KHÔNG dùng trên môi trường thật!"
+} else {
+    "Mật khẩu admin được sinh ngẫu nhiên an toàn riêng cho phiên bản triển khai này."
+}
+
+$credContent = @"
+==========================================================
+THÔNG TIN ĐĂNG NHẬP HỆ THỐNG THUYẾT MINH TỰ ĐỘNG ĐA NGÔN NGỮ
+==========================================================
+Thời gian khởi động: $nowStr
+Chế độ hoạt động:    $modeDesc
+
+1. ĐỊA CHỈ TRUY CẬP:
+   - Giao diện Quản trị Web:    http://localhost:3000
+   - Cổng API Gateway:          http://localhost:8080
+   - Bảng điều khiển RabbitMQ:  http://localhost:15672 (User: cnpm)
+
+2. TÀI KHOẢN ĐĂNG NHẬP QUẢN TRỊ VIÊN:
+   - Tên đăng nhập:             $adminUser
+   - Mật khẩu hiện tại:         $adminPass
+   - Vai trò:                   SUPER_ADMIN (Toàn quyền quản trị)
+
+3. LỆNH ĐIỀU HÀNH THƯỜNG DÙNG:
+   - Xem nhật ký hệ thống:      .\logs.ps1  (hoặc ./logs.sh)
+   - Dừng toàn bộ hệ thống:     .\stop.ps1  (hoặc ./stop.sh)
+   - Khôi phục / Xóa sạch:      .\reset.ps1 (hoặc ./reset.sh)
+
+==========================================================
+LƯU Ý BẢO MẬT:
+- $credNote
+- File này và file .env đã được tự động loại trừ khỏi kho Git và file ZIP đóng gói.
+==========================================================
+"@
+Set-Content -LiteralPath $credFile -Value $credContent -Encoding utf8
+
+# 5. Khởi động Docker Compose
+$env:DEMO_MODE = if ($isDemo) { 'true' } else { 'false' }
 $composeArgs = @('compose')
 if ($Full) {
     $composeArgs += @('-f', 'docker-compose.yml', '-f', 'docker-compose.full.yml', '--profile', 'full')
@@ -100,7 +201,7 @@ try {
     Pop-Location
 }
 
-# 5. Chờ các dịch vụ đạt trạng thái healthy
+# 6. Chờ các dịch vụ đạt trạng thái healthy
 Write-Host "[INFO] Đang kiểm tra trạng thái hoạt động của hệ thống (liveness/readiness)..." -ForegroundColor Green
 $maxAttempts = 90
 $ready = $false
@@ -125,7 +226,19 @@ if ($ready) {
     Write-Host "  - Giao diện Quản trị Web:    http://localhost:3000" -ForegroundColor Cyan
     Write-Host "  - Cổng API Gateway:          http://localhost:8080" -ForegroundColor Cyan
     Write-Host "  - Bảng điều khiển RabbitMQ:  http://localhost:15672 (User: cnpm)" -ForegroundColor Cyan
-    Write-Host "  - Tài khoản đăng nhập mẫu:   admin (Mật khẩu được lưu trong file .env)" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  TÀI KHOẢN ĐĂNG NHẬP QUẢN TRỊ VIÊN (ADMIN):" -ForegroundColor Green
+    Write-Host "  - Tên đăng nhập:             $adminUser" -ForegroundColor White
+    Write-Host "  - Mật khẩu hiện tại:         $adminPass" -ForegroundColor Yellow
+    Write-Host "  - Vị trí file thông tin:     $credFile" -ForegroundColor Cyan
+    
+    if ($isDemo) {
+        Write-Host ""
+        Write-Host "  [CẢNH BÁO DEMO] Hệ thống đang chạy ở CHẾ ĐỘ DEMO với mật khẩu cố định." -ForegroundColor Yellow
+        Write-Host "  -> Chỉ dùng cho mục đích trình diễn/giảng dạy, tuyệt đối không dùng trên môi trường thật!" -ForegroundColor Yellow
+        Write-Host "  -> Đã nạp sẵn 2 điểm tham quan và 1 nội dung mẫu để trình diễn ngay trên Web." -ForegroundColor Green
+    }
+    
     Write-Host "`nĐể theo dõi log:   .\logs.ps1"
     Write-Host "Để dừng hệ thống:  .\stop.ps1"
 } else {

@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$UseH2,
     [switch]$Build,
     [switch]$Wait

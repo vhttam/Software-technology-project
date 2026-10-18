@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $stateFile = Join-Path $repoRoot '.local-data/processes.json'
 if (!(Test-Path -LiteralPath $stateFile)) { Write-Host 'No local process list found.'; exit 0 }

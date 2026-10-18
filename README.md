@@ -33,7 +33,87 @@ Chỉ cần cài đặt **Docker Desktop** (hỗ trợ Windows, macOS và Linux)
 
 ---
 
-## 2. Các chế độ chạy (Profiles) & Giới hạn tài nguyên
+## 2. Hướng dẫn Chạy cho Giảng viên / Trình diễn (Demo Mode)
+
+Mục này hướng dẫn các bước nhanh nhất để giải nén file ZIP và chạy thử nghiệm hệ thống phục vụ chấm điểm đồ án, demo cho giảng viên hoặc trình diễn đồ án trên một máy tính mới.
+
+### Bước 1: Cài đặt và bật Docker Desktop
+- Tải và cài đặt **Docker Desktop** (miễn phí cho Windows, macOS, Linux) từ trang chủ: [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/).
+- Khởi động ứng dụng Docker Desktop và chờ biểu tượng cá voi chuyển sang màu xanh lá cây (**"Engine running"**).
+- Không cần cài thêm Java, Maven, Node.js hay bất kỳ phần mềm nào khác trên máy chủ.
+
+### Bước 2: Giải nén và mở thư mục dự án
+- Giải nén file `he-thong-thuyet-minh.zip` vào một thư mục làm việc bất kỳ (ví dụ: `D:\demo-he-thong` hoặc `~/demo-he-thong`).
+- Mở cửa sổ dòng lệnh (PowerShell/CMD trên Windows hoặc Terminal trên macOS/Linux) tại thư mục vừa giải nén.
+
+### Bước 3: Chạy lệnh khởi động ở Chế độ Demo
+- **Trên Windows (PowerShell / CMD)**:
+  ```powershell
+  # Cách khuyên dùng: Chạy qua PowerShell với cờ -Demo
+  powershell -ExecutionPolicy Bypass -File .\start.ps1 -Demo
+  ```
+  *(Hoặc chạy lệnh qua file batch: `.\start.bat -Demo`)*
+
+- **Trên macOS / Linux (Terminal)**:
+  ```bash
+  chmod +x *.sh
+  ./start.sh --demo
+  ```
+
+> **Hệ thống tự động thực hiện:**
+> 1. Kiểm tra trạng thái Docker daemon và cảnh báo xung đột cổng mạng.
+> 2. Khởi tạo file `.env` với mật khẩu admin cố định phục vụ demo và các khóa mã hóa ngẫu nhiên an toàn.
+> 3. Tự động ghi thông tin đăng nhập vào file `THONG-TIN-DANG-NHAP.txt` ở thư mục gốc để người dùng tiện tra cứu.
+> 4. Khởi chạy 7 microservices và 1 message broker qua Docker Compose.
+> 5. Chờ toàn bộ các dịch vụ đạt trạng thái hoạt động bình thường (`healthy` / HTTP 200).
+> 6. Tự động nạp sẵn **2 điểm tham quan** và **1 nội dung thuyết minh mẫu** vào cơ sở dữ liệu để giảng viên có thể trải nghiệm ngay mà không phải nhập liệu thủ công từ đầu.
+
+### Bước 4: Địa chỉ truy cập & Tài khoản Đăng nhập Demo
+
+Sau khi màn hình terminal thông báo **"HỆ THỐNG ĐÃ SẴN SÀNG HOẠT ĐỘNG!"**:
+
+| Thành phần | Địa chỉ URL | Thông tin xác thực |
+| :--- | :--- | :--- |
+| **Giao diện Quản trị Web** | [http://localhost:3000](http://localhost:3000) | Đăng nhập tài khoản Admin bên dưới |
+| **Cổng API Gateway** | [http://localhost:8080](http://localhost:8080) | Cổng trung tâm điều phối và xác thực |
+| **Bảng điều khiển RabbitMQ** | [http://localhost:15672](http://localhost:15672) | Tên đăng nhập: `cnpm` \| Mật khẩu: xem trong file `.env` |
+| **Kiểm tra sức khỏe hệ thống** | [http://localhost:8080/health](http://localhost:8080/health) | Trả về `{"status":"UP"}` khi toàn bộ services sẵn sàng |
+
+> **Tài khoản Quản trị viên (Admin) cho Demo:**
+> - **Tên đăng nhập**: `admin`
+> - **Mật khẩu Demo cố định**: `Admin@Demo2026!`
+> - **Vị trí file lưu trữ**: File `THONG-TIN-DANG-NHAP.txt` ngay tại thư mục gốc dự án.
+> - **CẢNH BÁO BẢO MẬT**: *Mật khẩu này chỉ dùng cho mục đích trình diễn, chấm điểm và giảng dạy. Tuyệt đối không sử dụng mật khẩu này trên môi trường thật/sản xuất! Khi chạy ở chế độ tiêu chuẩn (không có cờ `-Demo`), hệ thống sẽ tự động sinh mật khẩu ngẫu nhiên có độ dài cao.*
+
+### Bước 5: Thời gian khởi động lần đầu (Số liệu đo lường thực tế)
+- **Lần khởi động đầu tiên (Cold Start)**:
+  - Trên môi trường CI GitHub Actions (Ubuntu 22.04 4-core, kéo các base image `openjdk`, `rabbitmq`, `nginx` từ Docker Hub và build container): **khoảng 60 – 90 giây**.
+  - Trên máy tính cá nhân đã có sẵn cache base images: **khoảng 30 – 45 giây**.
+- **Các lần khởi động tiếp theo (Warm Start)**: Toàn bộ 8 container đạt trạng thái sẵn sàng trong vòng **10 – 15 giây**.
+
+### Bước 6: Cách dừng và dọn dẹp hệ thống
+- **Dừng hệ thống (bảo toàn dữ liệu để lần sau chạy tiếp)**:
+  - Windows: `.\stop.ps1` (hoặc click đúp `stop.bat`)
+  - macOS / Linux: `./stop.sh`
+- **Xóa sạch và khôi phục về trạng thái xuất xưởng (Reset)**:
+  - Windows: `.\reset.ps1` (hoặc `reset.bat`)
+  - macOS / Linux: `./reset.sh`
+
+### Bước 7: Xử lý các lỗi thường gặp khi chạy Demo
+1. **Lỗi Docker daemon chưa chạy (`Docker daemon is not running`)**:
+   - *Khắc phục*: Mở ứng dụng Docker Desktop trên máy và chờ biểu tượng chuyển sang trạng thái cá voi xanh lá ("Engine running") trước khi gõ lệnh start.
+2. **Lỗi bị chiếm cổng mạng (`Port 3000, 8080, 5672... already in use`)**:
+   - *Khắc phục*: Tắt các ứng dụng hoặc tiến trình đang chiếm cổng (ví dụ: IIS, máy chủ Node.js/Java chạy nền, hoặc RabbitMQ cài trực tiếp trên máy host).
+3. **Lỗi PowerShell chặn thực thi script (`PSSecurityException`)**:
+   - *Khắc phục*: Sử dụng lệnh chạy kèm cờ bypass:
+     `powershell -ExecutionPolicy Bypass -File .\start.ps1 -Demo`
+     hoặc sử dụng file batch: `.\start.bat -Demo`.
+4. **Lỗi quyền thực thi trên macOS/Linux (`Permission denied`)**:
+   - *Khắc phục*: Cấp quyền thực thi trước khi chạy bằng lệnh: `chmod +x *.sh`.
+
+---
+
+## 3. Các chế độ chạy (Profiles) & Giới hạn tài nguyên
 
 Hệ thống hỗ trợ 2 chế độ triển khai qua Docker Compose:
 
@@ -60,7 +140,7 @@ Sau khi hoàn tất tái cấu trúc đưa provider thật vào đúng ranh gi�
 
 ---
 
-## 3. Quản lý hệ thống (Scripts)
+## 4. Quản lý hệ thống (Scripts)
 
 Tất cả các script đều được chuẩn hóa chạy tương thích trên Windows (`.ps1`) và macOS/Linux (`.sh`):
 
@@ -93,7 +173,7 @@ Tất cả các script đều được chuẩn hóa chạy tương thích trên 
 
 ---
 
-## 4. Địa chỉ truy cập & Cổng mạng
+## 5. Địa chỉ truy cập & Cổng mạng
 
 Sau khi hệ thống khởi động thành công:
 
@@ -110,7 +190,7 @@ Sau khi hệ thống khởi động thành công:
 
 ---
 
-## 5. Kiến trúc dịch vụ & Xử lý bất đồng bộ (Event-Driven)
+## 6. Kiến trúc dịch vụ & Xử lý bất đồng bộ (Event-Driven)
 
 Hệ thống gồm 7 khối container phối hợp chặt chẽ:
 
@@ -159,7 +239,7 @@ Hệ thống gồm 7 khối container phối hợp chặt chẽ:
 
 ---
 
-## 6. Phân quyền người dùng (Role-Based Access Control - RBAC)
+## 7. Phân quyền người dùng (Role-Based Access Control - RBAC)
 
 Hệ thống thực thi ma trận phân quyền nghiêm ngặt tại cả tầng API Gateway và các dịch vụ nội bộ:
 
@@ -176,7 +256,7 @@ Hệ thống thực thi ma trận phân quyền nghiêm ngặt tại cả tầng
 
 ---
 
-## 7. Nhà cung cấp Dịch thuật & TTS (Translation & TTS Providers)
+## 8. Nhà cung cấp Dịch thuật & TTS (Translation & TTS Providers)
 
 Hệ thống được thiết kế theo mẫu Adapter Pattern, cho phép chuyển đổi linh hoạt giữa chế độ Giả lập (Mock) và Nhà cung cấp thật (Real) thông qua biến môi trường `PROVIDER_MODE` (`mock` hoặc `real`).
 
@@ -204,7 +284,7 @@ Khi cấu hình `PROVIDER_MODE=real`, hệ thống tự động kích hoạt cá
 
 ---
 
-## 8. Kiểm thử & Đảm bảo chất lượng (Verification)
+## 9. Kiểm thử & Đảm bảo chất lượng (Verification)
 
 Mỗi dịch vụ có thể được kiểm thử độc lập mà không cần phụ thuộc vào hạ tầng bên ngoài nhờ cơ chế H2 In-Memory và RabbitMQ Testcontainers / Mock:
 
@@ -223,7 +303,7 @@ cd ..\web; pnpm install; pnpm test; pnpm build
 
 ---
 
-## 9. Tài liệu tham chiếu
+## 10. Tài liệu tham chiếu
 
 * [Đặc tả Yêu cầu Nghiệp vụ (Use Case Specification v2.8)](docs/source/UC.docx)
 * [Đặc tả Hợp đồng API & Hướng sự kiện (API & Event Contracts v1.7)](docs/source/api-contracts.md)

@@ -94,6 +94,7 @@ services:
       TRANSLATION_SERVICE_TOKEN: ${TRANSLATION_SERVICE_TOKEN:-translation-token}
       TTS_SERVICE_TOKEN: ${TTS_SERVICE_TOKEN:-tts-token}
       GATEWAY_SERVICE_TOKEN: ${GATEWAY_SERVICE_TOKEN:-gateway-token}
+      DEMO_MODE: ${DEMO_MODE:-false}
     ports:
       - "8082:8082"
     volumes:
