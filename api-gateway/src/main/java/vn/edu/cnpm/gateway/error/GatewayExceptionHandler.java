@@ -47,6 +47,10 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler {
                 return errors.write(exchange, HttpStatus.SERVICE_UNAVAILABLE,
                         "CONTENT_SERVICE_UNAVAILABLE", "Dịch vụ nội dung tạm thời không khả dụng.");
             }
+            if ("NARRATION".equals(route.getTarget())) {
+                return errors.write(exchange, HttpStatus.SERVICE_UNAVAILABLE,
+                        "INTERNAL_ERROR", "Dịch vụ thuyết minh tạm thời không khả dụng.");
+            }
         }
         if (exception instanceof NotFoundException) {
             return errors.write(exchange, HttpStatus.NOT_FOUND, "ROUTE_NOT_FOUND", "Không tìm thấy tuyến API.");

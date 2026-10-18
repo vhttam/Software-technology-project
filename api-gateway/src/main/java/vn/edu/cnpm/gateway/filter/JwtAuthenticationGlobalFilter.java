@@ -41,6 +41,9 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
         var authorizationHeaders = exchange.getRequest().getHeaders().get("Authorization");
         String authorization = authorizationHeaders == null || authorizationHeaders.size() != 1
                 ? null : authorizationHeaders.get(0);
+        if ("SSE_CONTENT_ADMIN".equals(route.getAuthentication())) {
+            return chain.filter(exchange);
+        }
         if ("PUBLIC".equals(route.getAuthentication())) {
             return chain.filter(withoutAuthorization(exchange));
         }
@@ -58,7 +61,14 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
     private Mono<Void> authorize(ServerWebExchange exchange, GatewayFilterChain chain,
                                  RoutePolicy route, AuthenticatedUser user) {
-        if ("CONTENT_ADMIN".equals(route.getAuthentication()) && !"CONTENT_ADMIN".equals(user.role())) {
+        if ("SUPER_ADMIN".equals(route.getAuthentication()) && !"SUPER_ADMIN".equals(user.role())) {
+            return errors.write(exchange, HttpStatus.FORBIDDEN, "FORBIDDEN", "Bạn không có quyền thực hiện thao tác này.");
+        }
+        boolean isAdmin = "CONTENT_ADMIN".equals(user.role()) || "SUPER_ADMIN".equals(user.role());
+        if ("CONTENT_ADMIN".equals(route.getAuthentication()) && !isAdmin) {
+            return errors.write(exchange, HttpStatus.FORBIDDEN, "FORBIDDEN", "Bạn không có quyền thực hiện thao tác này.");
+        }
+        if ("SSE_CONTENT_ADMIN".equals(route.getAuthentication()) && !isAdmin) {
             return errors.write(exchange, HttpStatus.FORBIDDEN, "FORBIDDEN", "Bạn không có quyền thực hiện thao tác này.");
         }
         exchange.getAttributes().put(GatewayAttributes.USER_ID, user.userId());

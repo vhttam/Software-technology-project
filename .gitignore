@@ -1,0 +1,11 @@
+.env
+.local-data/
+**/target/
+node_modules/
+web/node_modules/
+dist/
+web/dist/
+.vscode/
+.idea/
+PROJECT_OVERVIEW.md
+*.log

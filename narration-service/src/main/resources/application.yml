@@ -1,0 +1,44 @@
+server:
+  address: ${SERVER_ADDRESS:0.0.0.0}
+  port: ${PORT:8083}
+spring:
+  application:
+    name: narration-service
+  datasource:
+    url: "${DB_URL:jdbc:h2:mem:narrationdb;MODE=MSSQLServer;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}"
+    username: ${DB_USER:sa}
+    password: ${DB_PASSWORD:}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
+    hikari:
+      initialization-fail-timeout: -1
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+  sql:
+    init:
+      mode: never
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    connection-timeout: 1s
+    template:
+      mandatory: true
+    publisher-confirm-type: correlated
+    publisher-returns: true
+  jackson:
+    time-zone: UTC
+logging:
+  level:
+    org.springframework.amqp: WARN
+app:
+  messaging:
+    enabled: ${AMQP_ENABLED:false}
+  security:
+    allowed-service-tokens:
+      auth: ${AUTH_SERVICE_TOKEN:}
+      content: ${CONTENT_SERVICE_TOKEN:}
+      narration: ${NARRATION_SERVICE_TOKEN:}
+      translation: ${TRANSLATION_SERVICE_TOKEN:}
+      tts: ${TTS_SERVICE_TOKEN:}
+

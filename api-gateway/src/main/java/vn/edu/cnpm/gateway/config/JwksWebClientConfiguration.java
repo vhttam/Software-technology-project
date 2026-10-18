@@ -21,4 +21,23 @@ public class JwksWebClientConfiguration {
                 .clientConnector(new ReactorClientHttpConnector(client))
                 .build();
     }
+
+    @Bean("contentInternalWebClient")
+    WebClient contentInternalWebClient(GatewayProperties properties) {
+        return internalClient(properties, properties.getContentServiceUrl());
+    }
+
+    @Bean("narrationInternalWebClient")
+    WebClient narrationInternalWebClient(GatewayProperties properties) {
+        return internalClient(properties, properties.getNarrationServiceUrl());
+    }
+
+    private WebClient internalClient(GatewayProperties properties, String baseUrl) {
+        HttpClient client = HttpClient.create()
+                .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS,
+                        Math.toIntExact(properties.getConnectTimeout().toMillis()))
+                .responseTimeout(properties.getResponseTimeout());
+        return WebClient.builder().baseUrl(baseUrl)
+                .clientConnector(new ReactorClientHttpConnector(client)).build();
+    }
 }

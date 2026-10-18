@@ -16,7 +16,9 @@ public class TrustedHeadersWebFilter implements WebFilter {
         ServerWebExchange sanitized = exchange.mutate().request(request -> request.headers(headers -> {
             headers.remove("X-User-Id");
             headers.remove("X-User-Role");
-            headers.remove("X-Service-Token");
+            if (!"/internal/callbacks/job-progress".equals(exchange.getRequest().getPath().value())) {
+                headers.remove("X-Service-Token");
+            }
             headers.remove("X-Correlation-ID");
         })).build();
         return chain.filter(sanitized);

@@ -49,10 +49,16 @@ public class DownstreamStatusMappingGlobalFilter implements GlobalFilter, Ordere
 
                 RoutePolicy route = exchange.getAttribute(GatewayAttributes.ROUTE_POLICY);
                 String target = route == null ? null : route.getTarget();
-                String code = "AUTH".equals(target) ? "AUTH_SERVICE_UNAVAILABLE" : "CONTENT_SERVICE_UNAVAILABLE";
-                String message = "AUTH".equals(target)
-                        ? "Dịch vụ xác thực tạm thời không khả dụng."
-                        : "Dịch vụ nội dung tạm thời không khả dụng.";
+                String code = switch (target == null ? "" : target) {
+                    case "AUTH" -> "AUTH_SERVICE_UNAVAILABLE";
+                    case "CONTENT" -> "CONTENT_SERVICE_UNAVAILABLE";
+                    default -> "INTERNAL_ERROR";
+                };
+                String message = switch (target == null ? "" : target) {
+                    case "AUTH" -> "Dịch vụ xác thực tạm thời không khả dụng.";
+                    case "CONTENT" -> "Dịch vụ nội dung tạm thời không khả dụng.";
+                    default -> "Dịch vụ thuyết minh tạm thời không khả dụng.";
+                };
                 Mono<Void> release = DataBufferUtils.join(Flux.from(body))
                         .doOnNext(DataBufferUtils::release).then();
                 return release.then(Mono.defer(() -> {

@@ -1,0 +1,181 @@
+name: Docker Smoke Test (E2E & RAM Benchmark)
+
+on:
+  push:
+    branches: [main, 'refactor/**', 'feat/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  docker-smoke-test:
+    name: Build, Run Lite Profile, Verify 6-Lang Job & Measure RAM
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare environment configuration (.env)
+        shell: bash
+        run: |
+          cp .env.example .env
+          sed -i 's/PROVIDER_MODE=real/PROVIDER_MODE=stub/g' .env
+          sed -i 's/BOOTSTRAP_ADMIN_PASSWORD=.*/BOOTSTRAP_ADMIN_PASSWORD=AdminPassword123!/g' .env
+          echo "GATEWAY_SERVICE_TOKEN=tok-gw-test-6lang" >> .env
+          echo "AUTH_SERVICE_TOKEN=tok-auth-test-6lang" >> .env
+          echo "CONTENT_SERVICE_TOKEN=tok-content-test-6lang" >> .env
+          echo "NARRATION_SERVICE_TOKEN=tok-narration-test-6lang" >> .env
+          echo "TRANSLATION_SERVICE_TOKEN=tok-trans-test-6lang" >> .env
+          echo "TTS_SERVICE_TOKEN=tok-tts-test-6lang" >> .env
+
+      - name: Build all 7 Docker images
+        shell: bash
+        run: |
+          docker compose build
+
+      - name: Start services via Docker Compose (Lite Profile)
+        shell: bash
+        run: |
+          docker compose up -d
+
+      - name: Wait for API Gateway and all microservices to be ready
+        shell: bash
+        run: |
+          echo "Waiting for http://localhost:8080/health..."
+          READY=0
+          for i in $(seq 1 90); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "API Gateway is UP (attempt $i)!"
+              READY=1
+              break
+            fi
+            echo -n "."
+            sleep 2
+          done
+          echo ""
+          if [ $READY -ne 1 ]; then
+            echo "Timeout waiting for services to become healthy."
+            docker compose ps
+            docker compose logs
+            exit 1
+          fi
+
+      - name: Execute End-to-End Flow (Auth -> POI -> Content -> 6-Lang Job -> Audio Download)
+        shell: bash
+        run: |
+          set -e
+          echo "=== 1. Login as admin ==="
+          LOGIN_RES=$(curl -s -f -X POST http://localhost:8080/api/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"username":"admin","password":"AdminPassword123!"}')
+          TOKEN=$(echo "$LOGIN_RES" | jq -r '.data.accessToken')
+          test -n "$TOKEN" && test "$TOKEN" != "null"
+          echo "Login successful. JWT token acquired."
+
+          echo "=== 2. Create Point of Interest (POI) ==="
+          POI_RES=$(curl -s -f -X POST http://localhost:8080/api/v1/pois \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"name":"Bảo tàng Lịch sử Dân tộc","description":"Khu trưng bày cổ vật","latitude":10.7769,"longitude":106.7009}')
+          POI_ID=$(echo "$POI_RES" | jq -r '.data.poiId')
+          test -n "$POI_ID" && test "$POI_ID" != "null"
+          echo "Created POI: $POI_ID"
+
+          echo "=== 3. Create Narration Content ==="
+          CONTENT_RES=$(curl -s -f -X POST "http://localhost:8080/api/v1/pois/$POI_ID/contents" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"title":"Thuyết minh gian khánh tiết","sourceLang":"vi","textContent":"Khu vực trưng bày những hiện vật lịch sử quý báu của dân tộc qua các thời kỳ phát triển văn hóa."}')
+          CONTENT_ID=$(echo "$CONTENT_RES" | jq -r '.data.contentId')
+          test -n "$CONTENT_ID" && test "$CONTENT_ID" != "null"
+          echo "Created Content: $CONTENT_ID"
+
+          echo "=== 4. Submit 6-Language Narration Job ==="
+          JOB_RES=$(curl -s -f -X POST http://localhost:8080/api/v1/jobs \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -H "Idempotency-Key: e2e-smoke-$(date +%s)" \
+            -d '{
+              "contentId": "'"$CONTENT_ID"'",
+              "targets": [
+                {"lang":"vi","voiceId":"vi-VN-Standard-A"},
+                {"lang":"en","voiceId":"en-US-Journey-F"},
+                {"lang":"fr","voiceId":"fr-FR-Standard-A"},
+                {"lang":"ja","voiceId":"ja-JP-Standard-A"},
+                {"lang":"zh","voiceId":"cmn-CN-Standard-A"},
+                {"lang":"ko","voiceId":"ko-KR-Standard-A"}
+              ]
+            }')
+          JOB_ID=$(echo "$JOB_RES" | jq -r '.data.jobId')
+          test -n "$JOB_ID" && test "$JOB_ID" != "null"
+          echo "Submitted Job: $JOB_ID with 6 languages"
+
+          echo "=== 5. Poll Job status until PUBLISHED ==="
+          JOB_DONE=0
+          for i in $(seq 1 60); do
+            DETAIL=$(curl -s http://localhost:8080/api/v1/jobs/$JOB_ID -H "Authorization: Bearer $TOKEN")
+            STATUS=$(echo "$DETAIL" | jq -r '.data.status')
+            echo "Attempt $i: Job $JOB_ID status = $STATUS"
+            if [ "$STATUS" = "PUBLISHED" ] || [ "$STATUS" = "COMPLETED" ]; then
+              JOB_DONE=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ $JOB_DONE -ne 1 ]; then
+            echo "Job did not reach PUBLISHED within timeout."
+            echo "Current details: $DETAIL"
+            exit 1
+          fi
+
+          echo "=== 6. Verify each language target audio download ==="
+          mkdir -p downloaded_audios
+          TARGETS=$(echo "$DETAIL" | jq -c '.data.targets[]')
+          for target in $TARGETS; do
+            LANG=$(echo "$target" | jq -r '.lang')
+            T_STATUS=$(echo "$target" | jq -r '.status')
+            AUDIO_URL=$(echo "$target" | jq -r '.audioUrl')
+            echo "Target [$LANG]: status=$T_STATUS, url=$AUDIO_URL"
+            test "$T_STATUS" = "PUBLISHED"
+            test -n "$AUDIO_URL" && test "$AUDIO_URL" != "null"
+            curl -f -s -o "downloaded_audios/audio_${LANG}.mp3" "$AUDIO_URL"
+            FILE_SIZE=$(wc -c < "downloaded_audios/audio_${LANG}.mp3")
+            echo "Downloaded audio_${LANG}.mp3: $FILE_SIZE bytes"
+            test "$FILE_SIZE" -gt 500
+          done
+          echo "All 6 audio targets verified and downloaded successfully!"
+
+      - name: Measure RAM and CPU Resource Usage (docker stats)
+        shell: bash
+        run: |
+          echo "=========================================================="
+          echo "          DOCKER CONTAINER RESOURCE USAGE (RAM/CPU)"
+          echo "=========================================================="
+          docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.CPUPerc}}"
+          echo "=========================================================="
+
+      - name: Export container logs for troubleshooting
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          docker compose logs > artifacts/docker-compose-smoke-test.log 2>&1
+
+      - name: Upload Docker logs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-compose-smoke-test-logs
+          path: artifacts/docker-compose-smoke-test.log
+
+      - name: Tear down Docker Compose environment
+        if: always()
+        shell: bash
+        run: |
+          docker compose down -v
