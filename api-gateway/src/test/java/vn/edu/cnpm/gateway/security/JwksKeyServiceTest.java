@@ -58,6 +58,7 @@ class JwksKeyServiceTest {
         authServer.shutdown();
     }
 
+    // BR-07; contract §2.2 cache theo kid va TTL.
     @Test
     void freshKeyIsCachedByKidWithoutAnotherJwksRequest() {
         authServer.enqueue(jwksResponse(keyPair, "known"));
@@ -69,6 +70,7 @@ class JwksKeyServiceTest {
         assertThat(authServer.getRequestCount()).isEqualTo(1);
     }
 
+    // BR-07; contract §2.2 tiep tuc dung key cache khi Auth loi.
     @Test
     void expiredCachedKeyIsUsedIfAuthServiceCannotRefreshIt() {
         authServer.enqueue(jwksResponse(keyPair, "known"));
@@ -82,6 +84,7 @@ class JwksKeyServiceTest {
         assertThat(authServer.getRequestCount()).isEqualTo(2);
     }
 
+    // BR-07; contract §2.2 kid la chi refresh mot lan, sau do negative-cache.
     @Test
     void unknownKidReloadsOnceThenUsesShortNegativeCache() {
         authServer.enqueue(jwksResponse(keyPair, "another-key"));
@@ -94,6 +97,7 @@ class JwksKeyServiceTest {
         assertThat(authServer.getRequestCount()).isEqualTo(1);
     }
 
+    // UC7 E3; contract §2.2 Auth loi va khong co key cache thi 503.
     @Test
     void authFailureWithoutCachedKeyBecomesServiceUnavailable() {
         authServer.enqueue(new MockResponse().setResponseCode(503).setBody("offline"));
@@ -103,6 +107,7 @@ class JwksKeyServiceTest {
         assertThat(authServer.getRequestCount()).isEqualTo(1);
     }
 
+    // BR-07; contract §2.2 single-flight khi nhieu request cung kid la.
     @Test
     void concurrentRequestsForSameUnknownKidUseOneNetworkRefresh() {
         authServer.enqueue(jwksResponse(keyPair, "shared-kid").setHeadersDelay(150, TimeUnit.MILLISECONDS));

@@ -63,8 +63,10 @@ class GatewayIntegrationTest {
     private static final AtomicInteger jwksDelayMs = new AtomicInteger();
     private static final ConcurrentLinkedQueue<MockResponse> authReplies = new ConcurrentLinkedQueue<>();
     private static final ConcurrentLinkedQueue<MockResponse> contentReplies = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<MockResponse> narrationReplies = new ConcurrentLinkedQueue<>();
     private static final MockWebServer authServer = new MockWebServer();
     private static final MockWebServer contentServer = new MockWebServer();
+    private static final MockWebServer narrationServer = new MockWebServer();
 
     static {
         authServer.setDispatcher(new Dispatcher() {
@@ -91,9 +93,17 @@ class GatewayIntegrationTest {
                 return reply == null ? jsonResponse(200, "{\"status\":\"success\",\"data\":{}}") : reply;
             }
         });
+        narrationServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                MockResponse reply = narrationReplies.poll();
+                return reply == null ? jsonResponse(200, "{\"status\":\"success\",\"data\":{}}") : reply;
+            }
+        });
         try {
             authServer.start();
             contentServer.start();
+            narrationServer.start();
         } catch (IOException exception) {
             throw new ExceptionInInitializerError(exception);
         }
@@ -108,6 +118,9 @@ class GatewayIntegrationTest {
     static void serviceUrls(DynamicPropertyRegistry registry) {
         registry.add("gateway.auth-service-url", () -> authServer.url("/").toString());
         registry.add("gateway.content-service-url", () -> contentServer.url("/").toString());
+        registry.add("gateway.narration-service-url", () -> narrationServer.url("/").toString());
+        registry.add("gateway.service-token", () -> "gateway-test-secret");
+        registry.add("NARRATION_SERVICE_TOKEN", () -> "narration-test-secret");
         registry.add("gateway.cors.allowed-origins", () -> FRONTEND_ORIGIN);
         registry.add("spring.cloud.gateway.server.webflux.httpclient.response-timeout", () -> "2s");
     }
@@ -116,19 +129,23 @@ class GatewayIntegrationTest {
     void resetMocks() {
         authReplies.clear();
         contentReplies.clear();
+        narrationReplies.clear();
         jwksBody.set(jwks(BASE_KEY, "test-key"));
         jwksStatus.set(200);
         jwksDelayMs.set(0);
         drain(authServer);
         drain(contentServer);
+        drain(narrationServer);
     }
 
     @AfterAll
     static void stopServers() throws IOException {
         authServer.shutdown();
         contentServer.shutdown();
+        narrationServer.shutdown();
     }
 
+    // UC6 smoke test va BR-13, contract §1.1.
     @Test
     void healthStartsWithoutCallingAuthOrContentAndCreatesCorrelationIds() throws Exception {
         int authBefore = authServer.getRequestCount();
@@ -150,11 +167,16 @@ class GatewayIntegrationTest {
         assertThat(contentServer.getRequestCount()).isEqualTo(contentBefore);
     }
 
+    // UC1 buoc 4, A1, A2; BR-07/13 va contract §1.1, §3.1-3.3 (T1, T9).
     @Test
     void everyContentRouteForwardsMethodPathAndTrustedIdentity() throws Exception {
         List<RouteCase> routes = List.of(
                 new RouteCase(HttpMethod.GET, "/api/v1/languages/source"),
                 new RouteCase(HttpMethod.GET, "/api/v1/pois"),
+                new RouteCase(HttpMethod.POST, "/api/v1/pois"),
+                new RouteCase(HttpMethod.GET, "/api/v1/pois/p-1"),
+                new RouteCase(HttpMethod.PUT, "/api/v1/pois/p-1"),
+                new RouteCase(HttpMethod.DELETE, "/api/v1/pois/p-1"),
                 new RouteCase(HttpMethod.POST, "/api/v1/pois/p-1/contents"),
                 new RouteCase(HttpMethod.GET, "/api/v1/pois/p-1/contents/active"),
                 new RouteCase(HttpMethod.GET, "/api/v1/contents"),
@@ -191,6 +213,7 @@ class GatewayIntegrationTest {
         }
     }
 
+    // UC1 A1, buoc 7/E1; contract §3.2-3.3 (T2, T3).
     @Test
     void searchQueryAndRequestBodyAreForwardedWithoutGatewayBusinessValidation() throws Exception {
         String query = "/api/v1/contents?page=1&pageSize=20&query=bao-tang";
@@ -219,6 +242,7 @@ class GatewayIntegrationTest {
         assertThat(search.getResponseHeaders().getFirst(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN)).isEqualTo(FRONTEND_ORIGIN);
     }
 
+    // UC1 buoc 7-8, A2, E1/E3/E4; contract §3.3 (T3).
     @Test
     void downstreamResponsesRemainTransparentIncludingNoContentAndConflictDetails() throws Exception {
         List<DownstreamReply> replies = List.of(
@@ -227,6 +251,7 @@ class GatewayIntegrationTest {
                 new DownstreamReply(204, ""),
                 new DownstreamReply(400, "{\"errorCode\":\"VALIDATION_ERROR\",\"details\":{\"textContent\":[\"bad\"]}}"),
                 new DownstreamReply(404, "{\"errorCode\":\"CONTENT_NOT_FOUND\"}"),
+                new DownstreamReply(500, "{\"errorCode\":\"INTERNAL_ERROR\",\"correlationId\":\"downstream-id\"}"),
                 new DownstreamReply(409, "{\"errorCode\":\"ACTIVE_CONTENT_EXISTS\"}"),
                 new DownstreamReply(409, "{\"errorCode\":\"CONTENT_VERSION_CONFLICT\",\"currentVersion\":4}"));
 
@@ -240,6 +265,7 @@ class GatewayIntegrationTest {
         }
     }
 
+    // UC1 E2 va UC7 E3; contract §1.2 (T4).
     @Test
     void downstreamGatewayStatusesAndConnectionResetBecomeContentUnavailable() throws Exception {
         for (int status : List.of(502, 503, 504)) {
@@ -255,6 +281,7 @@ class GatewayIntegrationTest {
         assertServiceUnavailable(reset, "CONTENT_SERVICE_UNAVAILABLE");
     }
 
+    // UC1 E2; contract §1.2 (T4 timeout).
     @Test
     void downstreamResponseTimeoutBecomesContentUnavailable() throws Exception {
         contentReplies.add(jsonResponse(200, "late response").setHeadersDelay(3500, TimeUnit.MILLISECONDS));
@@ -263,6 +290,7 @@ class GatewayIntegrationTest {
         assertNotNull(contentServer.takeRequest(2, TimeUnit.SECONDS));
     }
 
+    // UC7 login/refresh/logout; contract §2.1-2.4 (T5).
     @Test
     void authRoutesArePublicExceptLogoutAndForwardAuthErrors() throws Exception {
         authReplies.add(jsonResponse(401, "{\"status\":\"error\",\"errorCode\":\"INVALID_CREDENTIALS\"}"));
@@ -308,6 +336,7 @@ class GatewayIntegrationTest {
         assertServiceUnavailable(unavailable, "AUTH_SERVICE_UNAVAILABLE");
     }
 
+    // BR-07; contract §2.1-2.2 (T6).
     @Test
     void malformedExpiredAndWrongAlgorithmTokensAlwaysReturnUnauthorized() throws Exception {
         KeyPair wrongPair = rsaKeyPair();
@@ -348,6 +377,7 @@ class GatewayIntegrationTest {
         assertThat(contentServer.getRequestCount() - contentBefore).isEqualTo(1);
     }
 
+    // BR-01/07; contract §1.1, §2.2 (T7, T8 key rotation).
     @Test
     void wrongRoleIsForbiddenAndUnknownKidRefreshesJwksOnlyOnce() throws Exception {
         int contentBefore = contentServer.getRequestCount();
@@ -377,6 +407,40 @@ class GatewayIntegrationTest {
     }
 
     @Test
+    void roleBasedAccessControlDistinguishesSuperAdminFromContentAdmin() throws Exception {
+        // 1. CONTENT_ADMIN is forbidden on SUPER_ADMIN route (/api/v1/auth/users)
+        EntityExchangeResult<byte[]> caUsersList = send(HttpMethod.GET, "/api/v1/auth/users", token("CONTENT_ADMIN"), h -> { });
+        assertThat(caUsersList.getStatus().value()).isEqualTo(403);
+        assertThat(objectMapper.readTree(caUsersList.getResponseBodyContent()).get("errorCode").asText()).isEqualTo("FORBIDDEN");
+
+        // 2. CONTENT_ADMIN is forbidden on reset-password route (/api/v1/auth/users/u-1/reset-password)
+        EntityExchangeResult<byte[]> caReset = sendWithBody(HttpMethod.PUT, "/api/v1/auth/users/u-1/reset-password",
+                token("CONTENT_ADMIN"), "{\"newPassword\":\"NewPass123!\"}", h -> { });
+        assertThat(caReset.getStatus().value()).isEqualTo(403);
+
+        // 3. SUPER_ADMIN is allowed on /api/v1/auth/users
+        authReplies.add(jsonResponse(200, "{\"status\":\"success\",\"data\":{\"items\":[]}}"));
+        EntityExchangeResult<byte[]> saUsersList = send(HttpMethod.GET, "/api/v1/auth/users", token("SUPER_ADMIN"), h -> { });
+        assertThat(saUsersList.getStatus().value()).isEqualTo(200);
+        RecordedRequest saRequest = takeRequestForPath(authServer, "/api/v1/auth/users");
+        assertNotNull(saRequest);
+        assertThat(saRequest.getHeader("X-User-Role")).isEqualTo("SUPER_ADMIN");
+
+        // 4. CONTENT_ADMIN is allowed on legacy password endpoint (/api/v1/auth/users/u-1/password - AUTHENTICATED policy)
+        authReplies.add(new MockResponse().setResponseCode(204));
+        EntityExchangeResult<byte[]> caLegacyPassword = sendWithBody(HttpMethod.PUT, "/api/v1/auth/users/admin-1/password",
+                token("CONTENT_ADMIN"), "{\"currentPassword\":\"OldPass123!\",\"newPassword\":\"NewPass123!\"}", h -> { });
+        assertThat(caLegacyPassword.getStatus().value()).isEqualTo(204);
+
+        // 5. CONTENT_ADMIN is allowed on change-own-password endpoint (/api/v1/auth/password - AUTHENTICATED policy)
+        authReplies.add(new MockResponse().setResponseCode(204));
+        EntityExchangeResult<byte[]> caChangeOwnPassword = sendWithBody(HttpMethod.PUT, "/api/v1/auth/password",
+                token("CONTENT_ADMIN"), "{\"currentPassword\":\"OldPass123!\",\"newPassword\":\"NewPass123!\"}", h -> { });
+        assertThat(caChangeOwnPassword.getStatus().value()).isEqualTo(204);
+    }
+
+    // BR-07; contract §2.2 (T8 cached-key fallback and Auth outage).
+    @Test
     void authFailureDuringUnknownKidRefreshIs503ButCachedKeysStillWork() throws Exception {
         String unknownKid = "auth-down-" + UUID.randomUUID();
         jwksStatus.set(503);
@@ -392,6 +456,7 @@ class GatewayIntegrationTest {
         assertNotNull(contentServer.takeRequest(2, TimeUnit.SECONDS));
     }
 
+    // BR-07; contract §2.2 single-flight JWKS refresh (T8).
     @Test
     void concurrentRequestsForOneUnknownKidShareSingleJwksReload() throws Exception {
         String kid = "concurrent-" + UUID.randomUUID();
@@ -410,16 +475,17 @@ class GatewayIntegrationTest {
         assertThat(jwksCalls.get() - before).isEqualTo(1);
     }
 
+    // Whitelist va error envelope; contract §1.2, UC1 scope (T10).
     @Test
     void unsupportedPathsAndMethodsAreJson404AndOnlyRealRoutePreflightPasses() throws Exception {
-        for (String path : List.of("/internal/pois", "/api/v1/client/pois", "/not-a-route")) {
+        for (String path : List.of("/internal/pois", "/api/v1/client/unknown", "/not-a-route")) {
             EntityExchangeResult<byte[]> response = send(HttpMethod.GET, path, null, h -> { });
             assertThat(response.getStatus().value()).isEqualTo(404);
             assertThat(objectMapper.readTree(response.getResponseBodyContent()).get("errorCode").asText())
                     .isEqualTo("ROUTE_NOT_FOUND");
             UUID.fromString(response.getResponseHeaders().getFirst("X-Correlation-ID"));
         }
-        assertThat(send(HttpMethod.POST, "/api/v1/pois", token("CONTENT_ADMIN"), h -> { }).getStatus().value())
+        assertThat(send(HttpMethod.POST, "/api/v1/languages/source", token("CONTENT_ADMIN"), h -> { }).getStatus().value())
                 .isEqualTo(404);
 
         EntityExchangeResult<byte[]> preflight = client.options().uri("/api/v1/pois")
@@ -439,6 +505,110 @@ class GatewayIntegrationTest {
                 .isEqualTo("ROUTE_NOT_FOUND");
     }
 
+    @Test
+    void visitorListUsesInternalContentAndMapsNameToPoiName() throws Exception {
+        contentReplies.add(jsonResponse(200, "{\"status\":\"success\",\"data\":{\"items\":[{\"poiId\":\"p-1\",\"name\":\"Bảo tàng\",\"description\":\"Mô tả\"}],\"page\":1,\"pageSize\":20,\"totalItems\":1,\"totalPages\":1}}"));
+
+        EntityExchangeResult<byte[]> response = client.get().uri("/api/v1/client/pois?page=1&pageSize=20&query=bao-tang")
+                .exchange().expectStatus().isOk().expectBody().returnResult();
+
+        JsonNode data = objectMapper.readTree(response.getResponseBodyContent()).get("data");
+        assertThat(data.get("items").get(0).get("poiName").asText()).isEqualTo("Bảo tàng");
+        assertThat(data.get("items").get(0).has("name")).isFalse();
+        RecordedRequest request = contentServer.takeRequest(2, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertThat(request.getPath()).contains("/internal/pois?").contains("page=1").contains("pageSize=20").contains("query=bao-tang");
+        assertThat(request.getHeader("X-Service-Token")).isEqualTo("gateway-test-secret");
+        assertThat(request.getHeader("X-Correlation-ID")).isEqualTo(response.getResponseHeaders().getFirst("X-Correlation-ID"));
+    }
+
+    @Test
+    void visitorNarrationMergesActivePoiAndPublishedLanguages() throws Exception {
+        contentReplies.add(jsonResponse(200, "{\"status\":\"success\",\"data\":{\"poiId\":\"p-1\",\"poiName\":\"Bảo tàng\",\"contentId\":\"c-1\",\"contentTitle\":\"Lịch sử\"}}"));
+        narrationReplies.add(jsonResponse(200, "{\"status\":\"success\",\"data\":{\"narrations\":[{\"lang\":\"en\",\"version\":2}]}}"));
+
+        EntityExchangeResult<byte[]> response = client.get().uri("/api/v1/client/pois/p-1/narrations")
+                .exchange().expectStatus().isOk().expectBody().returnResult();
+
+        JsonNode data = objectMapper.readTree(response.getResponseBodyContent()).get("data");
+        assertThat(data.get("poiName").asText()).isEqualTo("Bảo tàng");
+        assertThat(data.get("contentTitle").asText()).isEqualTo("Lịch sử");
+        assertThat(data.get("narrations").get(0).get("lang").asText()).isEqualTo("en");
+        RecordedRequest contentRequest = contentServer.takeRequest(2, TimeUnit.SECONDS);
+        RecordedRequest narrationRequest = narrationServer.takeRequest(2, TimeUnit.SECONDS);
+        assertNotNull(contentRequest);
+        assertNotNull(narrationRequest);
+        assertThat(contentRequest.getPath()).isEqualTo("/internal/pois/p-1/current");
+        assertThat(narrationRequest.getPath()).isEqualTo("/internal/narrations?contentId=c-1");
+        assertThat(narrationRequest.getHeader("X-Service-Token")).isEqualTo("gateway-test-secret");
+    }
+
+    @Test
+    void narrationVoiceRouteAuthenticatesAndForwardsTrustedIdentity() throws Exception {
+        narrationReplies.add(jsonResponse(200, "{\"status\":\"success\",\"data\":{\"supportedVoices\":[]}}"));
+        EntityExchangeResult<byte[]> response = send(HttpMethod.GET, "/api/v1/voices", token("CONTENT_ADMIN"), h -> { });
+        assertThat(response.getStatus().value()).isEqualTo(200);
+        RecordedRequest request = narrationServer.takeRequest(2, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertThat(request.getPath()).isEqualTo("/api/v1/voices");
+        assertThat(request.getHeader("X-User-Id")).isEqualTo("admin-1");
+        assertThat(request.getHeader("X-User-Role")).isEqualTo("CONTENT_ADMIN");
+        assertThat(request.getHeader("Authorization")).isNull();
+    }
+
+    @Test
+    void narrationJobRouteForwardsIdempotencyHeaderAndBody() throws Exception {
+        narrationReplies.add(jsonResponse(202, "{\"status\":\"success\",\"data\":{\"jobId\":\"job-1\"}}"));
+        EntityExchangeResult<byte[]> response = sendWithBody(HttpMethod.POST, "/api/v1/jobs",
+                token("CONTENT_ADMIN"), "{\"contentId\":\"c-1\",\"targets\":[{\"lang\":\"en\",\"voiceId\":\"voice-1\"}]}",
+                headers -> headers.set("Idempotency-Key", "idem-key-1"));
+        assertThat(response.getStatus().value()).isEqualTo(202);
+        RecordedRequest request = narrationServer.takeRequest(2, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertThat(request.getPath()).isEqualTo("/api/v1/jobs");
+        assertThat(request.getHeader("Idempotency-Key")).isEqualTo("idem-key-1");
+        assertThat(request.getHeader("X-User-Id")).isEqualTo("admin-1");
+        assertThat(request.getBody().readUtf8()).contains("\"contentId\":\"c-1\"");
+    }
+
+    @Test
+    void clientQrLookupOnlyReturnsPoiId() throws Exception {
+        contentReplies.add(jsonResponse(200, "{\"status\":\"success\",\"data\":{\"poiId\":\"p-9\",\"poiName\":\"Bảo tàng\",\"contentId\":\"c-9\",\"contentTitle\":\"Lịch sử\"}}"));
+        EntityExchangeResult<byte[]> response = client.get().uri("/api/v1/client/qr/qr-safe-code")
+                .exchange().expectStatus().isOk().expectBody().returnResult();
+        JsonNode data = objectMapper.readTree(response.getResponseBodyContent()).get("data");
+        assertThat(data.size()).isEqualTo(1);
+        assertThat(data.get("poiId").asText()).isEqualTo("p-9");
+        RecordedRequest request = contentServer.takeRequest(2, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertThat(request.getPath()).isEqualTo("/internal/pois/by-qr/qr-safe-code");
+    }
+
+    @Test
+    void eventStreamUsesQueryTokenAndRequiresContentAdminRole() throws Exception {
+        EntityExchangeResult<byte[]> invalid = client.get().uri("/api/v1/jobs/job-1/events?accessToken=broken")
+                .exchange().expectStatus().isUnauthorized().expectBody().returnResult();
+        assertThat(objectMapper.readTree(invalid.getResponseBodyContent()).get("errorCode").asText()).isEqualTo("UNAUTHORIZED");
+
+        EntityExchangeResult<byte[]> viewer = client.get().uri("/api/v1/jobs/job-1/events?accessToken=" + token("VIEWER"))
+                .exchange().expectStatus().isForbidden().expectBody().returnResult();
+        assertThat(objectMapper.readTree(viewer.getResponseBodyContent()).get("errorCode").asText()).isEqualTo("FORBIDDEN");
+    }
+
+    @Test
+    void narrationProgressCallbackChecksCallerAndAcceptsUnsubscribedJob() {
+        String body = "{\"event\":\"job.progress\",\"correlationId\":\"corr-1\",\"data\":{\"jobId\":\"job-1\",\"status\":\"PROCESSING\",\"updatedAt\":\"2026-01-01T00:00:00Z\",\"targets\":[]}}";
+        EntityExchangeResult<byte[]> accepted = client.post().uri("/internal/callbacks/job-progress")
+                .header("X-Service-Token", "narration-test-secret").contentType(org.springframework.http.MediaType.APPLICATION_JSON).bodyValue(body)
+                .exchange().expectStatus().isOk().expectBody().returnResult();
+        assertThat(accepted.getResponseBodyContent()).isNullOrEmpty();
+
+        client.post().uri("/internal/callbacks/job-progress").header("X-Service-Token", "wrong")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .bodyValue(body).exchange().expectStatus().isUnauthorized();
+    }
+
+    // BR-13 va G8 logging; contract §1.1 (T9, T12).
     @Test
     void accessTokenPasswordAndBodyAreNeverWrittenToRequestLogs(CapturedOutput output) throws Exception {
         String secretToken = token("CONTENT_ADMIN");
