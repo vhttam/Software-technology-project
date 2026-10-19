@@ -10,6 +10,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class GatewayProperties {
     private String authServiceUrl;
     private String contentServiceUrl;
+    private String narrationServiceUrl;
+    private String serviceToken = "";
     private Duration jwksTtl = Duration.ofMinutes(10);
     private Duration unknownKidTtl = Duration.ofSeconds(30);
     private Duration jwtClockSkew = Duration.ofSeconds(30);
@@ -22,6 +24,10 @@ public class GatewayProperties {
     public void setAuthServiceUrl(String authServiceUrl) { this.authServiceUrl = authServiceUrl; }
     public String getContentServiceUrl() { return contentServiceUrl; }
     public void setContentServiceUrl(String contentServiceUrl) { this.contentServiceUrl = contentServiceUrl; }
+    public String getNarrationServiceUrl() { return narrationServiceUrl; }
+    public void setNarrationServiceUrl(String narrationServiceUrl) { this.narrationServiceUrl = narrationServiceUrl; }
+    public String getServiceToken() { return serviceToken; }
+    public void setServiceToken(String serviceToken) { this.serviceToken = serviceToken; }
     public Duration getJwksTtl() { return jwksTtl; }
     public void setJwksTtl(Duration jwksTtl) { this.jwksTtl = jwksTtl; }
     public Duration getUnknownKidTtl() { return unknownKidTtl; }
@@ -41,6 +47,7 @@ public class GatewayProperties {
         return switch (target) {
             case "AUTH" -> authServiceUrl;
             case "CONTENT" -> contentServiceUrl;
+            case "NARRATION" -> narrationServiceUrl;
             case "LOCAL" -> null;
             default -> throw new IllegalArgumentException("Unsupported route target: " + target);
         };

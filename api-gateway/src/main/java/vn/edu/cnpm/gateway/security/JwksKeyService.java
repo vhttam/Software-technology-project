@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -38,7 +39,7 @@ public class JwksKeyService {
     private final ConcurrentMap<String, Mono<RSAPublicKey>> inFlight = new ConcurrentHashMap<>();
 
     @Autowired
-    public JwksKeyService(WebClient jwksWebClient, GatewayProperties properties) {
+    public JwksKeyService(@Qualifier("jwksWebClient") WebClient jwksWebClient, GatewayProperties properties) {
         this(jwksWebClient, properties, Clock.systemUTC());
     }
 

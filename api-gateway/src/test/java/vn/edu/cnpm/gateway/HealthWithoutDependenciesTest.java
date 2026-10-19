@@ -22,6 +22,7 @@ class HealthWithoutDependenciesTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    // UC6 smoke test: /health phai tra 200 khi Auth va Content offline.
     @Test
     void applicationStartsAndHealthWorksWhenAuthAndContentAreOffline() throws Exception {
         var response = client.get().uri("/health").exchange()
