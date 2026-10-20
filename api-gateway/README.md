@@ -14,28 +14,18 @@ Gateway là biên HTTP của UC1: kiểm tra access token bằng public key, áp
 Chỉ cần JDK 17 trở lên. `/health` không gọi Auth/Content, vì vậy chạy được khi các service đó chưa khởi động.
 
 ```bash
-./mvnw clean verify
-./mvnw spring-boot:run
+# Khởi động api-gateway bằng docker-compose
+docker compose up -d api-gateway
 curl -i http://localhost:8080/health
 ```
 
-Trên Windows PowerShell có thể chạy `./mvnw.cmd clean verify` và `./mvnw.cmd spring-boot:run`. Mặc định Gateway lắng nghe cổng 8080; Auth Service ở `http://localhost:8081`, Content Service ở `http://localhost:8082`.
-
-Để chạy cùng hai service thật, đặt URL trước khi khởi động:
-
+Kiểm thử api-gateway bằng container Docker:
 ```bash
-AUTH_SERVICE_URL=http://localhost:8081 \
-CONTENT_SERVICE_URL=http://localhost:8082 \
-./mvnw spring-boot:run
+docker run --rm -v "${PWD}:/app" -w /app maven:3.9-eclipse-temurin-17-alpine mvn test
 ```
 
-Trong PowerShell:
-
-```powershell
-$env:AUTH_SERVICE_URL = 'http://localhost:8081'
-$env:CONTENT_SERVICE_URL = 'http://localhost:8082'
-./mvnw.cmd spring-boot:run
-```
+Mặc định Gateway lắng nghe cổng 8080; Auth Service ở `http://localhost:8081`, Content Service ở `http://localhost:8082`.
+Nếu máy đã cài sẵn Maven, bạn cũng có thể chạy trực tiếp: `mvn spring-boot:run`.
 
 `api-gateway/` không chứa Auth Service hay Content Service. Các địa chỉ mặc định chỉ là giá trị local; nếu không có service ở đó, route tương ứng trả 503 theo envelope của Gateway.
 

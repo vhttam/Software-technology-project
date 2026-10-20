@@ -92,7 +92,16 @@ foreach ($service in $commands) {
     $wrapper = Join-Path $directory 'mvnw.cmd'
     if ($Build -or !(Test-Path -LiteralPath $jar)) {
         Push-Location $directory
-        try { & $wrapper '-DskipTests' 'package'; if ($LASTEXITCODE -ne 0) { throw "Build failed for $($service.name)." } }
+        try {
+            if (Test-Path -LiteralPath $wrapper) {
+                & $wrapper '-DskipTests' 'package'
+            } elseif (Get-Command mvn -ErrorAction SilentlyContinue) {
+                & mvn '-DskipTests' 'package'
+            } else {
+                docker run --rm -v "${directory}:/app" -w /app maven:3.9-eclipse-temurin-17-alpine mvn -DskipTests package
+            }
+            if ($LASTEXITCODE -ne 0) { throw "Build failed for $($service.name)." }
+        }
         finally { Pop-Location }
     }
     $env:PORT = [string]$service.port

@@ -137,7 +137,7 @@ Mỗi container Spring Boot được cấu hình biến môi trường `-XX:MaxR
 ### Lưu ý quan trọng về môi trường không có Docker
 Sau khi hoàn tất tái cấu trúc đưa provider thật vào đúng ranh giới dịch vụ và loại bỏ `LocalJobWorker` (vốn ghi dữ liệu trực tiếp xuyên các CSDL), toàn bộ luồng tạo tác vụ thuyết minh hiện tại hoạt động theo mô hình hướng sự kiện (Event-Driven) bắt buộc cần Message Broker (RabbitMQ). Do đó:
 - **Để chạy và trải nghiệm đầy đủ tính năng hệ thống**: Bắt buộc cần cài đặt **Docker Desktop** (khởi động bằng `start.bat` / `start.ps1` / `start.sh`).
-- **Nếu máy phát triển không có Docker**: Bạn vẫn có thể chạy kiểm thử độc lập từng microservice bằng Maven (`mvnw test`). Trường hợp bắt buộc muốn chạy thử nghiệm luồng cũ bằng script polling CSDL không cần Docker, vui lòng checkout nhánh git cũ:
+- **Toàn bộ bằng Docker**: Toàn bộ hệ thống, biên dịch và triển khai đều sử dụng Docker container, không yêu cầu cài đặt Java hay Maven Wrapper trên máy host. Trường hợp muốn tham khảo luồng cũ trước khi chuyển sang event-driven, vui lòng checkout nhánh git cũ:
   ```bash
   git checkout backup/pre-api-message-update-2026-10-10
   ```
@@ -293,16 +293,18 @@ Khi cấu hình `PROVIDER_MODE=real`, hệ thống tự động kích hoạt cá
 Mỗi dịch vụ có thể được kiểm thử độc lập mà không cần phụ thuộc vào hạ tầng bên ngoài nhờ cơ chế H2 In-Memory và RabbitMQ Testcontainers / Mock:
 
 ```powershell
-# Kiểm thử toàn diện từng backend microservice
-cd auth-service; .\mvnw.cmd test
-cd ..\content-service; .\mvnw.cmd test
-cd ..\translation-service; .\mvnw.cmd test
-cd ..\tts-service; .\mvnw.cmd test
-cd ..\narration-service; .\mvnw.cmd test
-cd ..\api-gateway; .\mvnw.cmd test
+# Kiểm thử từng backend microservice hoàn toàn bằng Docker container (không cần cài Java/Maven):
+docker run --rm -v "${PWD}/auth-service:/app" -w /app maven:3.9-eclipse-temurin-17-alpine mvn test
+docker run --rm -v "${PWD}/content-service:/app" -w /app maven:3.9-eclipse-temurin-17-alpine mvn test
+docker run --rm -v "${PWD}/translation-service:/app" -w /app maven:3.9-eclipse-temurin-17-alpine mvn test
+docker run --rm -v "${PWD}/tts-service:/app" -w /app maven:3.9-eclipse-temurin-17-alpine mvn test
+docker run --rm -v "${PWD}/narration-service:/app" -w /app maven:3.9-eclipse-temurin-17-alpine mvn test
+docker run --rm -v "${PWD}/api-gateway:/app" -w /app maven:3.9-eclipse-temurin-17-alpine mvn test
 
-# Kiểm thử giao diện Web frontend
-cd ..\web; pnpm install; pnpm test; pnpm build
+# (Tùy chọn nếu máy có sẵn Maven) Có thể chạy trực tiếp: mvn test trong từng thư mục service
+
+# Kiểm thử giao diện Web frontend qua Docker
+docker build -t cnpm-web-test web
 ```
 
 ---
