@@ -157,7 +157,11 @@ EOF
 cd "$REPO_ROOT"
 COMPOSE_CMD="docker compose"
 export DEMO_MODE=$( [ "$IS_DEMO" = true ] && echo "true" || echo "false" )
-export BIND_IP=$( ([ "$IS_DEMO" = true ] && [ "$LAN_MODE" != true ]) && echo "127.0.0.1" || echo "0.0.0.0" )
+if [ -n "$CODESPACES" ] || [ "$LAN_MODE" = true ] || [ "$IS_DEMO" != true ]; then
+  export BIND_IP="0.0.0.0"
+else
+  export BIND_IP="127.0.0.1"
+fi
 
 if [ "$FULL_MODE" = true ]; then
   $COMPOSE_CMD -f docker-compose.yml -f docker-compose.full.yml --profile full up -d $BUILD_FLAG
