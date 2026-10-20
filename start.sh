@@ -5,15 +5,23 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FULL_MODE=false
 BUILD_FLAG=""
 IS_DEMO=false
+LAN_MODE=false
 
 if [ "${DEMO_MODE,,}" = "true" ]; then
   IS_DEMO=true
+fi
+if [ "${LAN_MODE,,}" = "true" ]; then
+  LAN_MODE=true
 fi
 
 for arg in "$@"; do
   case $arg in
     --demo|-d)
       IS_DEMO=true
+      shift
+      ;;
+    --lan|-l)
+      LAN_MODE=true
       shift
       ;;
     --full|-f)
@@ -28,7 +36,7 @@ for arg in "$@"; do
 done
 
 DEMO_ADMIN_USER="admin"
-DEMO_ADMIN_PASS="Admin@Demo2026!"
+DEMO_ADMIN_PASS="admin12345"
 
 echo "=========================================================="
 echo "  HỆ THỐNG THUYẾT MINH TỰ ĐỘNG ĐA NGÔN NGỮ"
@@ -149,6 +157,7 @@ EOF
 cd "$REPO_ROOT"
 COMPOSE_CMD="docker compose"
 export DEMO_MODE=$( [ "$IS_DEMO" = true ] && echo "true" || echo "false" )
+export BIND_IP=$( ([ "$IS_DEMO" = true ] && [ "$LAN_MODE" != true ]) && echo "127.0.0.1" || echo "0.0.0.0" )
 
 if [ "$FULL_MODE" = true ]; then
   $COMPOSE_CMD -f docker-compose.yml -f docker-compose.full.yml --profile full up -d $BUILD_FLAG

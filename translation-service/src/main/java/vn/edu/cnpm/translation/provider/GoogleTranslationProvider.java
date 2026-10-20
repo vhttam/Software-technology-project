@@ -24,9 +24,27 @@ public class GoogleTranslationProvider implements TranslationProvider {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
+    private final String googleTranslateBaseUrl;
+    private final String myMemoryBaseUrl;
+
+    public GoogleTranslationProvider() {
+        this("https://translate.googleapis.com", "https://api.mymemory.translated.net");
+    }
+
+    public GoogleTranslationProvider(String googleTranslateBaseUrl, String myMemoryBaseUrl) {
+        this.googleTranslateBaseUrl = (googleTranslateBaseUrl != null && !googleTranslateBaseUrl.isBlank())
+                ? googleTranslateBaseUrl : "https://translate.googleapis.com";
+        this.myMemoryBaseUrl = (myMemoryBaseUrl != null && !myMemoryBaseUrl.isBlank())
+                ? myMemoryBaseUrl : "https://api.mymemory.translated.net";
+    }
+
     private static final Object THROTTLE_LOCK = new Object();
     private static long lastCallTimestamp = 0;
     private static final long MIN_CALL_INTERVAL_MS = 400;
+
+    public static long getMinCallIntervalMs() {
+        return MIN_CALL_INTERVAL_MS;
+    }
 
     private static void throttle() {
         synchronized (THROTTLE_LOCK) {
@@ -64,7 +82,7 @@ public class GoogleTranslationProvider implements TranslationProvider {
             String sl = (srcDef != null && srcDef.translationLocale() != null && !srcDef.translationLocale().isBlank())
                     ? srcDef.translationLocale() : s;
 
-            String url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl="
+            String url = googleTranslateBaseUrl + "/translate_a/single?client=gtx&sl="
                     + URLEncoder.encode(sl, StandardCharsets.UTF_8)
                     + "&tl=" + URLEncoder.encode(tl, StandardCharsets.UTF_8)
                     + "&dt=t&q=" + URLEncoder.encode(text, StandardCharsets.UTF_8);
@@ -89,8 +107,9 @@ public class GoogleTranslationProvider implements TranslationProvider {
 
         // 2. Secondary fallback: MyMemory Translation API
         try {
+            System.out.println("[GoogleTranslationProvider] [FALLBACK_NOTICE] Google Translate API failed for " + s + "->" + t + ". Falling back to secondary provider MyMemory.");
             String langPair = s + "|" + t;
-            String url = "https://api.mymemory.translated.net/get?q="
+            String url = myMemoryBaseUrl + "/get?q="
                     + URLEncoder.encode(text, StandardCharsets.UTF_8)
                     + "&langpair=" + URLEncoder.encode(langPair, StandardCharsets.UTF_8)
                     + "&de=cnpm_student_test_2026@gmail.com";

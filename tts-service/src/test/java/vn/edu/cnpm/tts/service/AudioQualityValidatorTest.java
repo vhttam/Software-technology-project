@@ -71,4 +71,56 @@ class AudioQualityValidatorTest {
             tempFile.delete();
         }
     }
+
+    @Test
+    void realFfmpegValidationOnThreeAudioSamples() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                validator.isFfmpegInstalled(),
+                "Bỏ qua test FFmpeg thật trên máy local vì chưa cài ffmpeg/ffprobe (sẽ chạy đầy đủ trên môi trường CI)"
+        );
+
+        // 1. Bình thường: tạo file audio hợp lệ bằng ffmpeg phát âm tần 440Hz dài 4 giây
+        File normalFile = File.createTempFile("ffmpeg_normal_", ".mp3");
+        // 2. Toàn im lặng: tạo file audio im lặng (anullsrc) dài 4 giây
+        File silentFile = File.createTempFile("ffmpeg_silent_", ".mp3");
+        // 3. Bị cắt cụt: tạo file audio ngắn 0.5 giây
+        File truncFile = File.createTempFile("ffmpeg_truncated_", ".mp3");
+
+        try {
+            // Sinh file bình thường bằng ffmpeg
+            Process p1 = new ProcessBuilder("ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=4",
+                    "-c:a", "libmp3lame", "-b:a", "128k", normalFile.getAbsolutePath())
+                    .redirectErrorStream(true).start();
+            p1.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
+
+            // Sinh file im lặng bằng ffmpeg
+            Process p2 = new ProcessBuilder("ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+                    "-t", "4", "-c:a", "libmp3lame", "-b:a", "128k", silentFile.getAbsolutePath())
+                    .redirectErrorStream(true).start();
+            p2.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
+
+            // Sinh file bị cắt cụt (0.5 giây) bằng ffmpeg
+            Process p3 = new ProcessBuilder("ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.5",
+                    "-c:a", "libmp3lame", "-b:a", "128k", truncFile.getAbsolutePath())
+                    .redirectErrorStream(true).start();
+            p3.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
+
+            // Kiểm tra:
+            // File bình thường: văn bản 30 ký tự tiếng Anh (~1.6s kỳ vọng, ngưỡng 0.64s), file dài 4s -> Hợp lệ (true)
+            boolean normalValid = validator.validate("en", 30, 4.0, normalFile);
+            assertThat(normalValid).isTrue();
+
+            // File im lặng: toàn bộ âm lượng <-45dB hoặc silence_ratio > 40% -> Không hợp lệ (false)
+            boolean silentValid = validator.validate("en", 30, 4.0, silentFile);
+            assertThat(silentValid).isFalse();
+
+            // File bị cắt cụt: văn bản 300 ký tự (~16.6s kỳ vọng, ngưỡng 6.6s), file chỉ có 0.5s -> Không hợp lệ (false)
+            boolean truncValid = validator.validate("en", 300, 0.5, truncFile);
+            assertThat(truncValid).isFalse();
+        } finally {
+            normalFile.delete();
+            silentFile.delete();
+            truncFile.delete();
+        }
+    }
 }

@@ -24,7 +24,7 @@ public class NarrationCoordinator {
         content=RestClient.builder().baseUrl(env.getProperty("CONTENT_SERVICE_URL","http://localhost:8082")).build();
         tts=RestClient.builder().baseUrl(env.getProperty("TTS_SERVICE_URL","http://localhost:8085")).build();
         translation=RestClient.builder().baseUrl(env.getProperty("TRANSLATION_SERVICE_URL","http://localhost:8084")).build();
-        serviceToken=env.getProperty("NARRATION_SERVICE_TOKEN","");
+        serviceToken=env.getProperty("NARRATION_SERVICE_TOKEN","narration-token");
     }
 
     public Map<String,Object> voices() {

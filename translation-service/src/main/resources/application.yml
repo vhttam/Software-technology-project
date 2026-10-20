@@ -33,7 +33,7 @@ logging:
     org.springframework.amqp: WARN
 app:
   translation:
-    provider: ${TRANSLATION_PROVIDER:${PROVIDER_MODE:stub}}
+    provider: ${TRANSLATION_PROVIDER:${PROVIDER_MODE:real}}
   messaging:
     enabled: ${AMQP_ENABLED:false}
   security:

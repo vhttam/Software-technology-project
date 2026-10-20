@@ -166,7 +166,7 @@ export async function apiClient<T>(
     const details = errorBody?.details || null;
     const correlationId = errorBody?.correlationId;
 
-    if (response.status === 401) {
+    if (response.status === 401 && !endpoint.startsWith('/api/v1/client/')) {
       clearSession();
       notifyAuthError();
     }

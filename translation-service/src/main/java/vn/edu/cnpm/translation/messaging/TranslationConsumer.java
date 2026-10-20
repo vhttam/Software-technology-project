@@ -32,7 +32,7 @@ public class TranslationConsumer {
         this.mapper=mapper;this.store=store;this.provider=provider;this.events=events;
         this.contentClient=RestClient.builder().baseUrl(env.getProperty("CONTENT_SERVICE_URL","http://localhost:8082"))
                 .build();
-        this.contentToken=env.getProperty("CONTENT_SERVICE_TOKEN","");
+        this.contentToken=env.getProperty("CONTENT_SERVICE_TOKEN","content-token");
         this.chunkSize=Math.max(256,env.getProperty("TRANSLATION_CHUNK_SIZE",Integer.class,3000));
     }
 

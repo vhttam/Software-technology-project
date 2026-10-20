@@ -15,7 +15,18 @@ public class ServiceSecurity implements WebMvcConfigurer{
     private final List<String> tokens;
     public ServiceSecurity(Environment env){
         tokens=Stream.of("AUTH_SERVICE_TOKEN","CONTENT_SERVICE_TOKEN","NARRATION_SERVICE_TOKEN","TRANSLATION_SERVICE_TOKEN","TTS_SERVICE_TOKEN","GATEWAY_SERVICE_TOKEN")
-                .map(name->env.getProperty(name,"")).filter(value->!value.isBlank()).toList();
+                .map(name->env.getProperty(name, defaultToken(name))).filter(value->!value.isBlank()).toList();
+    }
+    private static String defaultToken(String name) {
+        return switch (name) {
+            case "AUTH_SERVICE_TOKEN" -> "auth-token";
+            case "CONTENT_SERVICE_TOKEN" -> "content-token";
+            case "NARRATION_SERVICE_TOKEN" -> "narration-token";
+            case "TRANSLATION_SERVICE_TOKEN" -> "translation-token";
+            case "TTS_SERVICE_TOKEN" -> "tts-token";
+            case "GATEWAY_SERVICE_TOKEN" -> "gateway-token";
+            default -> "";
+        };
     }
     @Override public void addInterceptors(InterceptorRegistry registry){
         registry.addInterceptor(new InternalGuard(tokens)).addPathPatterns("/internal/**");

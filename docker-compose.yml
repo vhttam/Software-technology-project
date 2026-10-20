@@ -6,8 +6,8 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-cnpm}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest123}
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "${BIND_IP:-0.0.0.0}:5672:5672"
+      - "${BIND_IP:-0.0.0.0}:15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -29,7 +29,7 @@ services:
       MSSQL_PID: Developer
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-LocalDevPassword123!}
     ports:
-      - "1433:1433"
+      - "${BIND_IP:-0.0.0.0}:1433:1433"
     volumes:
       - sqlserver_data:/var/opt/mssql
     healthcheck:
@@ -66,7 +66,7 @@ services:
       TTS_SERVICE_TOKEN: ${TTS_SERVICE_TOKEN:-tts-token}
       GATEWAY_SERVICE_TOKEN: ${GATEWAY_SERVICE_TOKEN:-gateway-token}
     ports:
-      - "8081:8081"
+      - "${BIND_IP:-0.0.0.0}:8081:8081"
     volumes:
       - auth_data:/app/data
     deploy:
@@ -96,7 +96,7 @@ services:
       GATEWAY_SERVICE_TOKEN: ${GATEWAY_SERVICE_TOKEN:-gateway-token}
       DEMO_MODE: ${DEMO_MODE:-false}
     ports:
-      - "8082:8082"
+      - "${BIND_IP:-0.0.0.0}:8082:8082"
     volumes:
       - content_data:/app/data
     deploy:
@@ -129,7 +129,7 @@ services:
       TRANSLATION_PROVIDER: ${TRANSLATION_PROVIDER:-real}
       PROVIDER_MODE: ${PROVIDER_MODE:-real}
     ports:
-      - "8084:8084"
+      - "${BIND_IP:-0.0.0.0}:8084:8084"
     volumes:
       - translation_data:/app/data
       - ./config/languages.json:/app/config/languages.json:ro
@@ -171,7 +171,7 @@ services:
       TTS_PROVIDER: ${TTS_PROVIDER:-real}
       PROVIDER_MODE: ${PROVIDER_MODE:-real}
     ports:
-      - "8085:8085"
+      - "${BIND_IP:-0.0.0.0}:8085:8085"
     volumes:
       - tts_data:/app/data
       - tts_storage:/app/storage
@@ -214,7 +214,7 @@ services:
       NARRATION_SERVICE_TOKEN: ${NARRATION_SERVICE_TOKEN:-narration-token}
       GATEWAY_SERVICE_TOKEN: ${GATEWAY_SERVICE_TOKEN:-gateway-token}
     ports:
-      - "8083:8083"
+      - "${BIND_IP:-0.0.0.0}:8083:8083"
     volumes:
       - narration_data:/app/data
       - ./config/languages.json:/app/config/languages.json:ro
@@ -247,7 +247,7 @@ services:
       TTS_SERVICE_URL: http://tts-service:8085
       GATEWAY_SERVICE_TOKEN: ${GATEWAY_SERVICE_TOKEN:-gateway-token}
     ports:
-      - "8080:8080"
+      - "${BIND_IP:-0.0.0.0}:8080:8080"
     depends_on:
       auth-service:
         condition: service_healthy
@@ -270,7 +270,7 @@ services:
       dockerfile: Dockerfile
     container_name: cnpm-web
     ports:
-      - "3000:80"
+      - "${BIND_IP:-0.0.0.0}:3000:80"
     depends_on:
       api-gateway:
         condition: service_healthy

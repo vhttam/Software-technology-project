@@ -21,6 +21,7 @@ public class ApiExceptionHandler {
     }
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiError> handleUnexpected(Exception ex, HttpServletRequest request) {
+        ex.printStackTrace();
         return ResponseEntity.internalServerError().body(error(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Đã xảy ra lỗi nội bộ", null, request));
     }
     private ApiError error(HttpStatus status, String code, String message, Object details, HttpServletRequest request) {

@@ -86,7 +86,9 @@ public class GatewayInternalController {
         exchange.getResponse().setStatusCode(HttpStatus.OK);
         exchange.getResponse().getHeaders().setContentType(MediaType.TEXT_EVENT_STREAM);
         exchange.getResponse().getHeaders().setCacheControl("no-cache");
-        Flux<byte[]> frames = streams.subscribe(jobId).map(this::encodeEvent);
+        Flux<byte[]> frames = Flux.concat(
+                Flux.just(": connected\n\n".getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                streams.subscribe(jobId).map(this::encodeEvent));
         return exchange.getResponse().writeAndFlushWith(frames.map(bytes ->
                 Mono.just(exchange.getResponse().bufferFactory().wrap(bytes))));
     }

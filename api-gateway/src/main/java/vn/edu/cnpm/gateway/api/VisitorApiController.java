@@ -127,6 +127,9 @@ public class VisitorApiController {
                 return Mono.just((Map<String, Object>) data);
             }
             HttpStatus status = HttpStatus.resolve(response.statusCode().value());
+            if (status == HttpStatus.UNAUTHORIZED || status == HttpStatus.FORBIDDEN) {
+                status = HttpStatus.SERVICE_UNAVAILABLE;
+            }
             Object errorCode = envelope.get("errorCode");
             Object errorMessage = envelope.get("message");
             String code = errorCode == null ? "INTERNAL_ERROR" : String.valueOf(errorCode);

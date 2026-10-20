@@ -10,3 +10,6 @@ web/dist/
 PROJECT_OVERVIEW.md
 *.log
 THONG-TIN-DANG-NHAP.txt
+~$*
+tts-service/data/
+**/data/audio/

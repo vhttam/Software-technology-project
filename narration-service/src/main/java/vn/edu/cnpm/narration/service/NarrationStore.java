@@ -260,7 +260,15 @@ public class NarrationStore {
         String status=String.valueOf(target.get("status"));
         if(isFinal(status)||"CANCELLED".equals(job.get("status")))return null;
         String now=clock.instant().toString();
-        jdbc.update("UPDATE job_targets SET status='FAILED',error_code=?,updated_at=? WHERE target_id=?",errorCode,now,targetId);
+        String errorMessage = "PROVIDER_ERROR".equals(errorCode)
+                ? "Không thể tạo giọng đọc từ nhà cung cấp. Hãy thử lại sau."
+                : ("TIMEOUT".equals(errorCode) ? "Quá thời gian xử lý" : null);
+        try {
+            jdbc.update("UPDATE job_targets SET status='FAILED',error_code=?,error_message=?,updated_at=? WHERE target_id=?",
+                    errorCode, errorMessage, now, targetId);
+        } catch (Exception ex) {
+            jdbc.update("UPDATE job_targets SET status='FAILED',error_code=?,updated_at=? WHERE target_id=?",errorCode,now,targetId);
+        }
         return refreshJobAndMaybeFinish(jobId,now);
     }
 

@@ -27,7 +27,7 @@ public class TtsConsumer {
         this.mapper=mapper;this.store=store;this.provider=provider;this.storage=storage;this.events=events;
         this.audioValidator=audioValidator;
         translations=RestClient.builder().baseUrl(env.getProperty("TRANSLATION_SERVICE_URL","http://localhost:8084")).build();
-        serviceToken=env.getProperty("TTS_SERVICE_TOKEN","");
+        serviceToken=env.getProperty("TTS_SERVICE_TOKEN","tts-token");
         chunkSize=Math.max(256,env.getProperty("TTS_CHUNK_SIZE",Integer.class,3000));
     }
     @RabbitListener(queues="#{ttsTranslationCompletedQueue.name}",ackMode="MANUAL")

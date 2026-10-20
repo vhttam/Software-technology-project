@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Khởi động toàn bộ Hệ thống Thuyết minh Tự động Đa ngôn ngữ bằng Docker.
 .PARAMETER Full
@@ -7,19 +7,23 @@
     Buộc biên dịch lại các Docker image trước khi khởi động.
 .PARAMETER Demo
     Bật chế độ DEMO: Sử dụng mật khẩu admin cố định (ghi trong README), nạp sẵn dữ liệu mẫu.
+.PARAMETER Lan
+    Cho phép truy cập qua mạng cục bộ LAN (mặc định trong chế độ Demo chỉ lắng nghe 127.0.0.1).
 #>
 param(
     [switch]$Full,
     [switch]$Build,
-    [switch]$Demo
+    [switch]$Demo,
+    [switch]$Lan
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
 
 $isDemo = $Demo.IsPresent -or ($env:DEMO_MODE -and $env:DEMO_MODE.ToLower() -eq 'true')
+$isLan = $Lan.IsPresent -or ($env:LAN_MODE -and $env:LAN_MODE.ToLower() -eq 'true')
 $demoAdminUser = 'admin'
-$demoAdminPass = 'Admin@Demo2026!'
+$demoAdminPass = 'admin12345'
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "  HỆ THỐNG THUYẾT MINH TỰ ĐỘNG ĐA NGÔN NGỮ" -ForegroundColor Cyan
@@ -179,6 +183,7 @@ Set-Content -LiteralPath $credFile -Value $credContent -Encoding utf8
 
 # 5. Khởi động Docker Compose
 $env:DEMO_MODE = if ($isDemo) { 'true' } else { 'false' }
+$env:BIND_IP = if ($isDemo -and -not $isLan) { '127.0.0.1' } else { '0.0.0.0' }
 $composeArgs = @('compose')
 if ($Full) {
     $composeArgs += @('-f', 'docker-compose.yml', '-f', 'docker-compose.full.yml', '--profile', 'full')

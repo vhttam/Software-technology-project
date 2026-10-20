@@ -200,7 +200,8 @@ export const JobDetailPage: React.FC = () => {
       case 'TIMEOUT':
         return 'Quá thời gian xử lý';
       case 'AUDIO_GENERATION_FAILED':
-        return 'Không thể tạo tệp âm thanh';
+      case 'PROVIDER_ERROR':
+        return 'Không thể tạo giọng đọc từ nhà cung cấp. Hãy thử lại sau.';
       case 'CONTENT_NOT_FOUND':
         return 'Không tìm thấy nội dung';
       case 'INTERNAL_ERROR':

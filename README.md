@@ -81,15 +81,19 @@ Sau khi màn hình terminal thông báo **"HỆ THỐNG ĐÃ SẴN SÀNG HOẠT 
 
 > **Tài khoản Quản trị viên (Admin) cho Demo:**
 > - **Tên đăng nhập**: `admin`
-> - **Mật khẩu Demo cố định**: `Admin@Demo2026!`
+> - **Mật khẩu Demo cố định**: `admin12345`
 > - **Vị trí file lưu trữ**: File `THONG-TIN-DANG-NHAP.txt` ngay tại thư mục gốc dự án.
 > - **CẢNH BÁO BẢO MẬT**: *Mật khẩu này chỉ dùng cho mục đích trình diễn, chấm điểm và giảng dạy. Tuyệt đối không sử dụng mật khẩu này trên môi trường thật/sản xuất! Khi chạy ở chế độ tiêu chuẩn (không có cờ `-Demo`), hệ thống sẽ tự động sinh mật khẩu ngẫu nhiên có độ dài cao.*
+> - **Phạm vi cổng mạng & Tùy chọn mạng LAN**: Khi chạy chế độ Demo (`start.bat -Demo` / `./start.sh --demo`), các cổng mặc định chỉ công bố trên `127.0.0.1` (localhost) để an toàn. Nếu cần cho phép máy khác trong mạng truy cập, hãy truyền thêm tùy chọn `-Lan` (PowerShell/CMD) hoặc `--lan` (Bash).
+> - **Trang công khai cho khách (QR Code)**: Giao diện web hiện tại cung cấp Bảng điều khiển Quản trị viên (Admin Dashboard) cho quản lý POI, nội dung và tác vụ thuyết minh. Hệ thống **chưa đóng gói trang web công khai riêng dành cho khách quét mã QR** trong UI này; toàn bộ API khách tham quan (`/api/v1/client/**`) đã hoàn thiện và sẵn sàng để ứng dụng di động hoặc bên thứ ba kết nối.
 
-### Bước 5: Thời gian khởi động lần đầu (Số liệu đo lường thực tế)
-- **Lần khởi động đầu tiên (Cold Start)**:
-  - Trên môi trường CI GitHub Actions (Ubuntu 22.04 4-core, kéo các base image `openjdk`, `rabbitmq`, `nginx` từ Docker Hub và build container): **khoảng 60 – 90 giây**.
-  - Trên máy tính cá nhân đã có sẵn cache base images: **khoảng 30 – 45 giây**.
-- **Các lần khởi động tiếp theo (Warm Start)**: Toàn bộ 8 container đạt trạng thái sẵn sàng trong vòng **10 – 15 giây**.
+> **LƯU Ý VỀ ÂM THANH THUYẾT MINH & NHÀ CUNG CẤP (PROVIDER):**
+> - **Chế độ Mock (Mặc định khi demo offline / test)**: Hệ thống phát **TIẾNG BÍP** (synthetic beep 440Hz 1 giây trung tính, không phải giọng nói người). Điều này giúp trình diễn trọn vẹn quy trình tạo tác vụ, nghe thử và tải file âm thanh mp3 ổn định 100% mà không tốn cước và không phụ thuộc kết nối Internet bên ngoài.
+> - **Chế độ Real (Online)**: Nếu bật `PROVIDER_MODE=real`, hệ thống sẽ kết nối Google Translate và Google TTS trực tuyến để dịch và phát giọng nói thật. Chế độ này **bắt buộc cần Internet** và dịch vụ công cộng có thể bị chặn mạng hoặc bị giới hạn lưu lượng (rate-limit).
+
+### Bước 5: Thời gian khởi động lần đầu (Lưu ý thực tế)
+- **Lần khởi động đầu tiên (Cold Start)**: Lần đầu build mất vài phút đến vài chục phút tùy mạng và máy; hãy chạy thử trước buổi demo.
+- **Các lần khởi động tiếp theo (Warm Start)**: Khi Docker images và cache đã sẵn sàng, hệ thống khởi động nhanh chóng.
 
 ### Bước 6: Cách dừng và dọn dẹp hệ thống
 - **Dừng hệ thống (bảo toàn dữ liệu để lần sau chạy tiếp)**:
