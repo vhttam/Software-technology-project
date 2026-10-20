@@ -313,4 +313,3 @@ cd ..\web; pnpm install; pnpm test; pnpm build
 * [Đặc tả Hợp đồng API & Hướng sự kiện (API & Event Contracts v1.7)](docs/source/api-contracts.md)
 * [Ma trận Hợp đồng và Trạng thái Kiểm chứng](docs/contract-matrix.md)
 * [Hướng dẫn Mở rộng & Thêm Ngôn ngữ Mới](docs/them-ngon-ngu.md)
-
