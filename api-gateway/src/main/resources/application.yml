@@ -17,7 +17,8 @@ gateway:
   auth-service-url: ${AUTH_SERVICE_URL:http://localhost:8081}
   content-service-url: ${CONTENT_SERVICE_URL:http://localhost:8082}
   narration-service-url: ${NARRATION_SERVICE_URL:http://localhost:8083}
-  service-token: ${GATEWAY_SERVICE_TOKEN:gateway-token}  jwks-ttl: ${JWKS_TTL:10m}
+  service-token: ${GATEWAY_SERVICE_TOKEN:gateway-token}
+  jwks-ttl: ${JWKS_TTL:10m}
   unknown-kid-ttl: ${JWKS_UNKNOWN_KID_TTL:30s}
   jwt-clock-skew: ${JWT_CLOCK_SKEW:30s}
   connect-timeout: ${GATEWAY_CONNECT_TIMEOUT:3s}
