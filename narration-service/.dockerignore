@@ -1,7 +1,0 @@
-target
-*.log
-.git
-.idea
-.vscode
-.env
-THONG-TIN-DANG-NHAP.txt

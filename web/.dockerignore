@@ -1,8 +1,0 @@
-node_modules
-dist
-*.log
-.git
-.idea
-.vscode
-.env
-THONG-TIN-DANG-NHAP.txt
