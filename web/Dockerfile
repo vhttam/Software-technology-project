@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for web frontend
 FROM node:22-alpine AS builder
 WORKDIR /app
-RUN npm install -g pnpm@11.25.0
+RUN npm install -g pnpm@9.15.5
 COPY package.json pnpm-lock.yaml* .npmrc* ./
 RUN pnpm install --frozen-lockfile
 COPY . .
