@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Đóng gói mã nguồn dự án thành file ZIP sạch phục vụ bàn giao và triển khai.
     Tự động loại bỏ .git, build cache, logs, thư mục tạm và các file nhạy cảm.
@@ -81,7 +81,7 @@ try {
     foreach ($file in $filesToZip) {
         $rel = $file.FullName.Substring($repoRoot.Length).TrimStart('\', '/').Replace('\', '/')
         $entry = $archive.CreateEntry($rel, [System.IO.Compression.CompressionLevel]::Optimal)
-        $fileStream = [System.IO.File]::OpenRead($file.FullName)
+        $fileStream = [System.IO.FileStream]::new($file.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
         try {
             $entryStream = $entry.Open()
             try {
