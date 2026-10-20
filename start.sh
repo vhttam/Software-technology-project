@@ -3,7 +3,7 @@ set -e
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FULL_MODE=false
-BUILD_FLAG=""
+BUILD_FLAG="--build"
 IS_DEMO=false
 LAN_MODE=false
 
