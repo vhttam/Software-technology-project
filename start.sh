@@ -36,7 +36,7 @@ for arg in "$@"; do
 done
 
 DEMO_ADMIN_USER="admin"
-DEMO_ADMIN_PASS="admin12345"
+DEMO_ADMIN_PASS="Admin12345!"
 
 echo "=========================================================="
 echo "  HỆ THỐNG THUYẾT MINH TỰ ĐỘNG ĐA NGÔN NGỮ"
@@ -75,16 +75,9 @@ if [ ! -f "$ENV_FILE" ]; then
   if [ -f "$ENV_EXAMPLE" ]; then
     cp "$ENV_EXAMPLE" "$ENV_FILE"
 
-    if [ "$IS_DEMO" = true ]; then
-      ADMIN_PASS="$DEMO_ADMIN_PASS"
-      sed -i.bak "s/BOOTSTRAP_ADMIN_PASSWORD=.*/BOOTSTRAP_ADMIN_PASSWORD=$ADMIN_PASS/g" "$ENV_FILE" 2>/dev/null || sed -i "" "s/BOOTSTRAP_ADMIN_PASSWORD=.*/BOOTSTRAP_ADMIN_PASSWORD=$ADMIN_PASS/g" "$ENV_FILE"
-      sed -i.bak "s/DEMO_MODE=.*/DEMO_MODE=true/g" "$ENV_FILE" 2>/dev/null || sed -i "" "s/DEMO_MODE=.*/DEMO_MODE=true/g" "$ENV_FILE"
-    else
-      RANDOM_SUFFIX=$(head -c 8 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 8)
-      ADMIN_PASS="Admin@${RANDOM_SUFFIX}!"
-      sed -i.bak "s/BOOTSTRAP_ADMIN_PASSWORD=.*/BOOTSTRAP_ADMIN_PASSWORD=$ADMIN_PASS/g" "$ENV_FILE" 2>/dev/null || sed -i "" "s/BOOTSTRAP_ADMIN_PASSWORD=.*/BOOTSTRAP_ADMIN_PASSWORD=$ADMIN_PASS/g" "$ENV_FILE"
-      sed -i.bak "s/DEMO_MODE=.*/DEMO_MODE=false/g" "$ENV_FILE" 2>/dev/null || sed -i "" "s/DEMO_MODE=.*/DEMO_MODE=false/g" "$ENV_FILE"
-    fi
+    ADMIN_PASS="$DEMO_ADMIN_PASS"
+    sed -i.bak "s/BOOTSTRAP_ADMIN_PASSWORD=.*/BOOTSTRAP_ADMIN_PASSWORD=$ADMIN_PASS/g" "$ENV_FILE" 2>/dev/null || sed -i "" "s/BOOTSTRAP_ADMIN_PASSWORD=.*/BOOTSTRAP_ADMIN_PASSWORD=$ADMIN_PASS/g" "$ENV_FILE"
+    sed -i.bak "s/DEMO_MODE=.*/DEMO_MODE=$IS_DEMO/g" "$ENV_FILE" 2>/dev/null || sed -i "" "s/DEMO_MODE=.*/DEMO_MODE=$IS_DEMO/g" "$ENV_FILE"
 
     RANDOM_SECRET=$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)
     sed -i.bak "s/local-dev-signing-secret-change-me-32-characters/$RANDOM_SECRET/g" "$ENV_FILE" 2>/dev/null || sed -i "" "s/local-dev-signing-secret-change-me-32-characters/$RANDOM_SECRET/g" "$ENV_FILE"
@@ -106,8 +99,7 @@ else
       ADMIN_PASS="$DEMO_ADMIN_PASS"
     fi
   elif [ -z "$ADMIN_PASS" ]; then
-    RANDOM_SUFFIX=$(head -c 8 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 8)
-    ADMIN_PASS="Admin@${RANDOM_SUFFIX}!"
+    ADMIN_PASS="$DEMO_ADMIN_PASS"
     echo "BOOTSTRAP_ADMIN_PASSWORD=$ADMIN_PASS" >> "$ENV_FILE"
   fi
 fi
@@ -186,7 +178,8 @@ if [ "$READY" = true ]; then
   echo "=========================================================="
   echo "  HỆ THỐNG ĐÃ SẴN SÀNG HOẠT ĐỘNG!"
   echo "=========================================================="
-  echo "  - Giao diện Quản trị Web:    http://localhost:3000"
+  echo "  - Giao diện Khách tham quan:  http://localhost:3000"
+  echo "  - Giao diện Quản trị Web:    http://localhost:3000/admin.html"
   echo "  - Cổng API Gateway:          http://localhost:8080"
   echo "  - Bảng điều khiển RabbitMQ:  http://localhost:15672 (User: cnpm)"
   echo ""

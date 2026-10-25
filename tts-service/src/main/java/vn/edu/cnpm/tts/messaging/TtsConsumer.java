@@ -37,15 +37,15 @@ public class TtsConsumer {
         String correlation=(String)message.getMessageProperties().getHeaders().get("correlationId");
         TranslationCompleted event;
         try {event=mapper.readValue(message.getBody(),TranslationCompleted.class);validate(event);}
-        catch(Exception ex){channel.basicNack(tag,false,false);return;}
+        catch(Exception ex){ System.err.println("[TtsConsumer] JSON read failed: " + ex); ex.printStackTrace(); channel.basicNack(tag,false,false); return; }
         try {
             if(!store.isCancelled(event.jobId()))process(event,correlation);
             store.clearAttempt(eventId);channel.basicAck(tag,false);
         } catch(Exception ex) {
             int attempts;
             try{attempts=store.nextInternalAttempt(eventId);}
-            catch(Exception db){channel.basicNack(tag,false,false);return;}
-            channel.basicNack(tag,false,attempts<=3);
+            catch(Exception db){ System.err.println("[TtsConsumer] DB attempt failed: " + db); db.printStackTrace(); channel.basicNack(tag,false,false); return; }
+            System.err.println("[TtsConsumer] Process failed: " + ex); ex.printStackTrace(); channel.basicNack(tag,false,attempts<=3);
         }
     }
     @RabbitListener(queues="#{cancelQueue.name}",ackMode="MANUAL")

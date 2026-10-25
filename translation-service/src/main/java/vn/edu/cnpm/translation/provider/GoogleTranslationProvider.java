@@ -11,8 +11,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,6 +25,9 @@ public class GoogleTranslationProvider implements TranslationProvider {
     private final String googleTranslateBaseUrl;
     private final String myMemoryBaseUrl;
 
+    private static final String USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
     public GoogleTranslationProvider() {
         this("https://translate.googleapis.com", "https://api.mymemory.translated.net");
     }
@@ -40,7 +41,7 @@ public class GoogleTranslationProvider implements TranslationProvider {
 
     private static final Object THROTTLE_LOCK = new Object();
     private static long lastCallTimestamp = 0;
-    private static final long MIN_CALL_INTERVAL_MS = 400;
+    private static final long MIN_CALL_INTERVAL_MS = 300;
 
     public static long getMinCallIntervalMs() {
         return MIN_CALL_INTERVAL_MS;
@@ -73,51 +74,97 @@ public class GoogleTranslationProvider implements TranslationProvider {
 
         throttle();
 
-        // 1. Primary: Google Translate Web API using configured translationLocale
-        try {
-            LanguageRegistry.LanguageDef targetDef = LanguageRegistry.findByCode(t);
-            String tl = (targetDef != null && targetDef.translationLocale() != null && !targetDef.translationLocale().isBlank())
-                    ? targetDef.translationLocale() : t;
-            LanguageRegistry.LanguageDef srcDef = LanguageRegistry.findByCode(s);
-            String sl = (srcDef != null && srcDef.translationLocale() != null && !srcDef.translationLocale().isBlank())
-                    ? srcDef.translationLocale() : s;
+        LanguageRegistry.LanguageDef targetDef = LanguageRegistry.findByCode(t);
+        String tl = (targetDef != null && targetDef.translationLocale() != null && !targetDef.translationLocale().isBlank())
+                ? targetDef.translationLocale() : t;
+        LanguageRegistry.LanguageDef srcDef = LanguageRegistry.findByCode(s);
+        String sl = (srcDef != null && srcDef.translationLocale() != null && !srcDef.translationLocale().isBlank())
+                ? srcDef.translationLocale() : s;
 
-            String url = googleTranslateBaseUrl + "/translate_a/single?client=gtx&sl="
-                    + URLEncoder.encode(sl, StandardCharsets.UTF_8)
-                    + "&tl=" + URLEncoder.encode(tl, StandardCharsets.UTF_8)
-                    + "&dt=t&q=" + URLEncoder.encode(text, StandardCharsets.UTF_8);
+        String encodedText = URLEncoder.encode(text, StandardCharsets.UTF_8);
+        String encodedSl = URLEncoder.encode(sl, StandardCharsets.UTF_8);
+        String encodedTl = URLEncoder.encode(tl, StandardCharsets.UTF_8);
+
+        // 1. Primary: Google Translate API with client=dict-chrome-ex (highest success rate, clean JSON)
+        try {
+            String url = googleTranslateBaseUrl + "/translate_a/single?client=dict-chrome-ex&sl="
+                    + encodedSl + "&tl=" + encodedTl + "&dt=t&q=" + encodedText;
 
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .header("User-Agent", "Mozilla/5.0")
-                    .timeout(Duration.ofSeconds(12))
+                    .header("User-Agent", USER_AGENT)
+                    .timeout(Duration.ofSeconds(10))
                     .GET()
                     .build();
 
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (resp.statusCode() == 200) {
                 String parsed = parseGoogleTranslateResponse(resp.body());
-                if (parsed != null && !parsed.isBlank() && !parsed.contains("???")) {
+                if (parsed != null && !parsed.isBlank() && !parsed.contains("???") && !parsed.equalsIgnoreCase(text)) {
                     return parsed;
                 }
             }
         } catch (Exception ex) {
-            System.err.println("[GoogleTranslationProvider] Google Translate API error: " + ex.getMessage());
+            System.err.println("[GoogleTranslationProvider] Google Translate (dict-chrome-ex) error: " + ex.getMessage());
         }
 
-        // 2. Secondary fallback: MyMemory Translation API
+        // 2. Secondary: clients5 Google Translate endpoint
         try {
-            System.out.println("[GoogleTranslationProvider] [FALLBACK_NOTICE] Google Translate API failed for " + s + "->" + t + ". Falling back to secondary provider MyMemory.");
-            String langPair = s + "|" + t;
-            String url = myMemoryBaseUrl + "/get?q="
-                    + URLEncoder.encode(text, StandardCharsets.UTF_8)
+            String url = "https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl="
+                    + encodedSl + "&tl=" + encodedTl + "&q=" + encodedText;
+
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("User-Agent", USER_AGENT)
+                    .timeout(Duration.ofSeconds(10))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (resp.statusCode() == 200) {
+                String parsed = parseGoogleTranslateResponse(resp.body());
+                if (parsed != null && !parsed.isBlank() && !parsed.contains("???") && !parsed.equalsIgnoreCase(text)) {
+                    return parsed;
+                }
+            }
+        } catch (Exception ex) {
+            System.err.println("[GoogleTranslationProvider] Google Translate (clients5) error: " + ex.getMessage());
+        }
+
+        // 3. Tertiary: Google Translate API with client=gtx
+        try {
+            String url = googleTranslateBaseUrl + "/translate_a/single?client=gtx&sl="
+                    + encodedSl + "&tl=" + encodedTl + "&dt=t&q=" + encodedText;
+
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("User-Agent", USER_AGENT)
+                    .timeout(Duration.ofSeconds(10))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (resp.statusCode() == 200) {
+                String parsed = parseGoogleTranslateResponse(resp.body());
+                if (parsed != null && !parsed.isBlank() && !parsed.contains("???") && !parsed.equalsIgnoreCase(text)) {
+                    return parsed;
+                }
+            }
+        } catch (Exception ex) {
+            System.err.println("[GoogleTranslationProvider] Google Translate (gtx) error: " + ex.getMessage());
+        }
+
+        // 4. Quaternary fallback: MyMemory Translation API
+        try {
+            String langPair = sl + "|" + tl;
+            String url = myMemoryBaseUrl + "/get?q=" + encodedText
                     + "&langpair=" + URLEncoder.encode(langPair, StandardCharsets.UTF_8)
                     + "&de=cnpm_student_test_2026@gmail.com";
 
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .header("User-Agent", "Mozilla/5.0")
-                    .timeout(Duration.ofSeconds(6))
+                    .header("User-Agent", USER_AGENT)
+                    .timeout(Duration.ofSeconds(8))
                     .GET()
                     .build();
 
@@ -125,18 +172,31 @@ public class GoogleTranslationProvider implements TranslationProvider {
             if (resp.statusCode() == 200) {
                 String translated = extractJsonField(resp.body(), "translatedText");
                 if (translated != null && !translated.isBlank() && !translated.contains("MYMEMORY WARNING")) {
-                    return unescapeUnicode(unescapeHtml(translated));
+                    String clean = unescapeUnicode(unescapeHtml(translated));
+                    if (!clean.equalsIgnoreCase(text)) {
+                        return clean;
+                    }
                 }
             }
         } catch (Exception ex) {
-            System.err.println("[GoogleTranslationProvider] MyMemory translation API fallback failed: " + ex.getMessage());
+            System.err.println("[GoogleTranslationProvider] MyMemory translation fallback error: " + ex.getMessage());
         }
 
-        return text;
+        // CRITICAL RULE: When sourceLang != targetLang, NEVER copy raw source text!
+        throw new IllegalStateException("Không thể dịch văn bản từ " + s + " sang " + t + " qua các dịch vụ dịch thuật khả dụng.");
     }
 
     public static String parseGoogleTranslateResponse(String json) {
-        if (json == null || !json.startsWith("[[[")) return json;
+        if (json == null) return null;
+        json = json.trim();
+
+        // Array of single string format: ["translated text"]
+        if (json.startsWith("[\"") && json.endsWith("\"]") && !json.startsWith("[[[")) {
+            String piece = json.substring(2, json.length() - 2);
+            return unescapeJson(piece);
+        }
+
+        if (!json.startsWith("[[[")) return json;
         int endOfSegments = json.indexOf("]],");
         if (endOfSegments < 0) endOfSegments = json.length();
         String segmentsBlock = json.substring(3, endOfSegments);

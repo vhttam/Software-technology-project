@@ -17,6 +17,7 @@ export const AppRoutes: React.FC = () => {
     <Routes>
       {/* Public Login Route without main layout */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/admin/login" element={<LoginPage />} />
 
       {/* Admin Layout wrapping all authenticated routes */}
       <Route
@@ -28,6 +29,25 @@ export const AppRoutes: React.FC = () => {
         }
       >
         <Route index element={<OverviewPage />} />
+        <Route path="admin" element={<OverviewPage />} />
+        <Route path="admin/dashboard" element={<OverviewPage />} />
+        <Route path="admin/overview" element={<OverviewPage />} />
+        <Route path="admin/pois" element={<PoisPage />} />
+        <Route path="admin/contents" element={<ContentsPage />} />
+        <Route path="admin/jobs/new" element={<CreateJobPage />} />
+        <Route path="admin/jobs/:id" element={<JobDetailPage />} />
+        <Route path="admin/jobs" element={<JobHistoryPage />} />
+        <Route
+          path="admin/accounts"
+          element={
+            <ProtectedRoute requiredRole="SUPER_ADMIN">
+              <AccountsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="admin.html" element={<OverviewPage />} />
+        <Route path="dashboard" element={<OverviewPage />} />
+        <Route path="overview" element={<OverviewPage />} />
         <Route path="pois" element={<PoisPage />} />
         <Route path="contents" element={<ContentsPage />} />
         <Route path="jobs/new" element={<CreateJobPage />} />

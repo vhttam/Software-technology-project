@@ -59,6 +59,13 @@ public final class LanguageRegistry {
                 System.err.println("[LanguageRegistry] Failed to parse " + configFile + ": " + e.getMessage());
             }
         }
+        try (java.io.InputStream is = LanguageRegistry.class.getResourceAsStream("/config/languages.json")) {
+            if (is != null) {
+                String json = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                List<LanguageDef> list = parseLanguages(json);
+                if (!list.isEmpty()) return list;
+            }
+        } catch (Exception ignored) {}
         return getDefaultFallback();
     }
 

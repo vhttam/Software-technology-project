@@ -183,6 +183,26 @@ gateway:
       path: /api/v1/client/pois
       target: LOCAL
       authentication: PUBLIC
+    - id: visitor-pois-nearby
+      method: GET
+      path: /api/v1/client/pois/nearby
+      target: LOCAL
+      authentication: PUBLIC
+    - id: visitor-presence-heartbeat
+      method: POST
+      path: /api/v1/client/presence/heartbeat
+      target: LOCAL
+      authentication: PUBLIC
+    - id: visitor-presence-count
+      method: GET
+      path: /api/v1/client/presence/count
+      target: LOCAL
+      authentication: PUBLIC
+    - id: admin-presence-count
+      method: GET
+      path: /api/v1/presence/count
+      target: LOCAL
+      authentication: PUBLIC
     - id: visitor-qr
       method: GET
       path: /api/v1/client/qr/{qrCode}

@@ -18,7 +18,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ poi, onClose }) => {
   ).replace(/\/+$/, '');
 
   const qrCodeValue = poi?.qrCode || poi?.poiId || '';
-  const listenUrl = qrCodeValue ? `${publicBaseUrl}/listen/${encodeURIComponent(qrCodeValue)}` : '';
+  const listenUrl = qrCodeValue ? `${publicBaseUrl}/?qr=${encodeURIComponent(qrCodeValue)}` : '';
 
   useEffect(() => {
     if (!poi || !listenUrl) return;
@@ -94,7 +94,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ poi, onClose }) => {
           <title>In mã QR - ${poi.name}</title>
           <style>
             body {
-              font-family: 'Times New Roman', Times, serif;
+              font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
               text-align: center;
               padding: 40px;
               color: #1e293b;

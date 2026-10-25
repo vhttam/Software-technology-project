@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Theo dõi log của các container trong hệ thống.
 .PARAMETER Service
@@ -8,15 +8,15 @@ param(
     [string]$Service
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 $repoRoot = $PSScriptRoot
 
 Push-Location $repoRoot
 try {
     if ($Service) {
-        docker compose logs -f $Service
+        & docker compose logs -f $Service
     } else {
-        docker compose logs -f
+        & docker compose logs -f
     }
 } finally {
     Pop-Location

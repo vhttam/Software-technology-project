@@ -8,7 +8,7 @@
 }
 
 :root {
-  --font-family: "Times New Roman", Times, serif;
+  --font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --bg-app: #f4f5f7;
   --bg-surface: #ffffff;
   --bg-sidebar: #1e293b;
@@ -37,7 +37,7 @@ body {
   min-width: 320px;
   background-color: var(--bg-app);
   color: var(--text-main);
-  font-family: "Times New Roman", Times, serif;
+  font-family: var(--font-family);
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -149,9 +149,10 @@ button:disabled {
 }
 
 .sidebar-link.active {
-  background-color: var(--primary);
-  color: var(--text-sidebar-active);
-  font-weight: bold;
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }
 
 .sidebar-icon {
@@ -1025,4 +1026,6 @@ button:disabled {
     gap: 10px;
   }
 }
+
+
 

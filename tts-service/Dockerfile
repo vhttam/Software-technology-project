@@ -2,9 +2,8 @@
 FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 WORKDIR /build
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
 COPY src ./src
-RUN mvn package -DskipTests -B
+RUN mvn clean package -DskipTests -B
 
 FROM eclipse-temurin:17-jre-alpine AS runner
 # Install curl for healthcheck and ffmpeg/ffprobe for audio quality validation

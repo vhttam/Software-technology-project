@@ -3,6 +3,8 @@ import QRCode from 'qrcode';
 
 interface QrThumbnailProps {
   value?: string;
+  qrCode?: string;
+  poiId?: string;
   size?: number;
   onClick?: () => void;
   title?: string;
@@ -10,6 +12,8 @@ interface QrThumbnailProps {
 
 export const QrThumbnail: React.FC<QrThumbnailProps> = ({
   value,
+  qrCode,
+  poiId,
   size = 56,
   onClick,
   title = 'Nhấn để xem / tải mã QR',
@@ -21,10 +25,11 @@ export const QrThumbnail: React.FC<QrThumbnailProps> = ({
     (typeof window !== 'undefined' ? window.location.origin : '')
   ).replace(/\/+$/, '');
 
-  const listenUrl = value ? `${publicBaseUrl}/listen/${encodeURIComponent(value)}` : '';
+  const effectiveCode = value || qrCode || poiId || '';
+  const listenUrl = effectiveCode ? `${publicBaseUrl}/?qr=${encodeURIComponent(effectiveCode)}` : '';
 
   useEffect(() => {
-    if (!value || !listenUrl) {
+    if (!effectiveCode || !listenUrl) {
       setDataUrl('');
       return;
     }
@@ -43,7 +48,7 @@ export const QrThumbnail: React.FC<QrThumbnailProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [listenUrl, size]);
+  }, [listenUrl, effectiveCode, size]);
 
   return (
     <div
@@ -53,25 +58,25 @@ export const QrThumbnail: React.FC<QrThumbnailProps> = ({
         width: size,
         height: size,
         minWidth: size,
-        border: '1px solid var(--border-line)',
-        borderRadius: '4px',
+        border: '1px solid #cbd5e1',
+        borderRadius: '6px',
         overflow: 'hidden',
         cursor: onClick ? 'pointer' : 'default',
         backgroundColor: '#ffffff',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
       }}
     >
       {dataUrl ? (
         <img
           src={dataUrl}
-          alt={`Mã QR ${value}`}
+          alt={`Mã QR ${effectiveCode}`}
           style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         />
       ) : (
-        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>QR</span>
+        <span style={{ fontSize: '10px', color: '#94a3b8' }}>QR</span>
       )}
     </div>
   );

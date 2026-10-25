@@ -77,7 +77,8 @@ public class GoogleTtsProvider implements TtsProvider {
         }
 
         // 2. Secondary fallback: Local Windows Speech Synthesis (if running on Windows and supported)
-        if ("vi".equals(l) || "en".equals(l)) {
+        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        if (isWindows && ("vi".equals(l) || "en".equals(l))) {
             try {
                 byte[] audio = synthesizeViaWindowsTts(text, l);
                 if (audio != null && audio.length > 500) {
@@ -89,7 +90,9 @@ public class GoogleTtsProvider implements TtsProvider {
         }
 
         // 3. Fallback: synthetic MP3 frames so playback always works
-        return generateSyntheticToneFrames(Math.max(40, text.length()));
+        int durationSeconds = Math.max(2, (int) Math.ceil((double) text.length() / 12.0));
+        int frameCount = (int) Math.round(durationSeconds * 38.28);
+        return generateSyntheticToneFrames(Math.max(80, frameCount));
     }
 
     private byte[] synthesizeViaOnlineTts(String text, String lang) {
@@ -111,7 +114,7 @@ public class GoogleTtsProvider implements TtsProvider {
                 HttpRequest req = HttpRequest.newBuilder()
                         .uri(URI.create(url))
                         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                        .timeout(Duration.ofSeconds(15))
+                        .timeout(Duration.ofSeconds(5))
                         .GET()
                         .build();
 

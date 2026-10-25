@@ -23,7 +23,7 @@ public class NarrationController {
             @RequestParam(required=false) String query) {
         return ApiEnvelope.success(coordinator.listJobs(page, pageSize, poiId, status, dateRange, lang, query));
     }
-    @PostMapping("/api/v1/jobs")
+    @PostMapping({"/api/v1/jobs", "/internal/jobs"})
     public ResponseEntity<ApiEnvelope<Map<String,Object>>> create(@RequestHeader(value="Idempotency-Key",required=false) String key,
             @RequestBody CreateJobRequest body,HttpServletRequest request) {
         Map<String,Object> job=coordinator.createJob(body==null?null:body.contentId(),body==null?null:body.retryOfJobId(),

@@ -28,6 +28,7 @@ public class LocalDirectRelay {
     private final RestClient translationClient;
     private final RestClient ttsClient;
     private final String serviceToken;
+    private final Environment env;
 
     public LocalDirectRelay(JdbcTemplate jdbc, ObjectMapper mapper, NarrationStore store,
                             CallbackClient callback, Environment env) {
@@ -35,6 +36,7 @@ public class LocalDirectRelay {
         this.mapper = mapper;
         this.store = store;
         this.callback = callback;
+        this.env = env;
         this.contentClient = RestClient.builder().baseUrl(env.getProperty("CONTENT_SERVICE_URL", "http://localhost:8082")).build();
         this.translationClient = RestClient.builder().baseUrl(env.getProperty("TRANSLATION_SERVICE_URL", "http://localhost:8084")).build();
         this.ttsClient = RestClient.builder().baseUrl(env.getProperty("TTS_SERVICE_URL", "http://localhost:8085")).build();
@@ -43,6 +45,9 @@ public class LocalDirectRelay {
 
     @Scheduled(fixedDelay = 1500)
     public void processPendingEvents() {
+        if ("true".equalsIgnoreCase(env.getProperty("app.messaging.enabled")) || "true".equalsIgnoreCase(env.getProperty("AMQP_ENABLED"))) {
+            return;
+        }
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT event_id, routing_key, payload, correlation_id FROM outbox_events WHERE published = 0 ORDER BY occurred_at");
         for (Map<String, Object> row : rows) {

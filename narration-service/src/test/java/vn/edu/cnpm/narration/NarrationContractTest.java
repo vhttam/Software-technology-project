@@ -19,6 +19,7 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
+@org.springframework.test.annotation.DirtiesContext
 class NarrationContractTest {
     static final MockWebServer contentServer=new MockWebServer();
     static final MockWebServer ttsServer=new MockWebServer();

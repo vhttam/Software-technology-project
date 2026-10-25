@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import org.springframework.test.annotation.DirtiesContext;
+import okhttp3.mockwebserver.Dispatcher;
+import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -32,6 +35,7 @@ import static org.mockito.Mockito.verify;
         properties = {
                 "app.messaging.enabled=true"
         })
+@DirtiesContext
 class RabbitMqEndToEndFlowTest {
 
     static final MockWebServer contentServer = new MockWebServer();
@@ -39,8 +43,24 @@ class RabbitMqEndToEndFlowTest {
 
     static {
         try {
-            contentServer.start();
-            ttsServer.start();
+            contentServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                return new MockResponse()
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("{\"status\":\"success\",\"data\":{\"contentId\":\"content-6lang\",\"version\":1,\"sourceLang\":\"vi\",\"textContent\":\"Thử nghiệm đa ngôn ngữ\"}}");
+            }
+        });
+        contentServer.start();
+            ttsServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                return new MockResponse()
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("{\"status\":\"success\",\"data\":{\"supportedVoices\":[{\"lang\":\"vi\",\"voices\":[\"vi-VN-Standard-A\"]},{\"lang\":\"en\",\"voices\":[\"en-US-Journey-F\"]},{\"lang\":\"fr\",\"voices\":[\"fr-FR-Standard-A\"]},{\"lang\":\"ja\",\"voices\":[\"ja-JP-Standard-A\"]},{\"lang\":\"zh\",\"voices\":[\"zh-CN-Standard-A\"]},{\"lang\":\"ko\",\"voices\":[\"ko-KR-Standard-A\"]}]}}");
+            }
+        });
+        ttsServer.start();
         } catch (IOException ex) {
             throw new ExceptionInInitializerError(ex);
         }
@@ -48,6 +68,8 @@ class RabbitMqEndToEndFlowTest {
 
     @DynamicPropertySource
     static void endpoints(DynamicPropertyRegistry registry) {
+        registry.add("AMQP_ENABLED", () -> "true");
+        registry.add("app.messaging.enabled", () -> "true");
         registry.add("CONTENT_SERVICE_URL", () -> contentServer.url("/").toString());
         registry.add("TTS_SERVICE_URL", () -> ttsServer.url("/").toString());
         registry.add("NARRATION_SERVICE_TOKEN", () -> "narration-flow-token");
@@ -73,29 +95,6 @@ class RabbitMqEndToEndFlowTest {
 
     @Test
     void endToEndSixLanguageFlowFromRequestedToPublished() throws Exception {
-        // Enqueue content metadata and voice catalog with 6 enabled languages
-        contentServer.enqueue(new MockResponse()
-                .setHeader("Content-Type", "application/json")
-                .setBody("{\"status\":\"success\",\"data\":{\"contentId\":\"content-6lang\",\"version\":1,\"sourceLang\":\"vi\"}}"));
-
-        ttsServer.enqueue(new MockResponse()
-                .setHeader("Content-Type", "application/json")
-                .setBody("""
-                        {
-                          "status":"success",
-                          "data":{
-                            "supportedVoices":[
-                              {"lang":"vi","voices":["vi-VN-Standard-A"]},
-                              {"lang":"en","voices":["en-US-Journey-F"]},
-                              {"lang":"fr","voices":["fr-FR-Standard-A"]},
-                              {"lang":"ja","voices":["ja-JP-Standard-A"]},
-                              {"lang":"zh","voices":["zh-CN-Standard-A"]},
-                              {"lang":"ko","voices":["ko-KR-Standard-A"]}
-                            ]
-                          }
-                        }
-                        """));
-
         Map<String, String> voiceByLang = Map.of(
                 "vi", "vi-VN-Standard-A",
                 "en", "en-US-Journey-F",

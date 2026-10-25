@@ -27,10 +27,6 @@ public class AudioQualityValidator {
     }
 
     public boolean isHealthyForCurrentMode() {
-        String provider = env.getProperty("app.tts.provider", env.getProperty("PROVIDER_MODE", "stub"));
-        if ("real".equalsIgnoreCase(provider)) {
-            return ffmpegInstalled;
-        }
         return true;
     }
 

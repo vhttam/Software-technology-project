@@ -14,6 +14,21 @@ export const LoginPage: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
+  React.useEffect(() => {
+    const lingeringVisitorId = sessionStorage.getItem('visitor_id');
+    if (lingeringVisitorId) {
+      sessionStorage.removeItem('visitor_id');
+      try {
+        fetch('/api/v1/client/presence/heartbeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ visitorId: lingeringVisitorId, leave: true }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch (_) {}
+    }
+  }, []);
+
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {

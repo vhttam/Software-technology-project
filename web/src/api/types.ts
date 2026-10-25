@@ -139,6 +139,9 @@ export interface PoiItem {
   name: string;
   description?: string;
   qrCode?: string;
+  latitude?: number;
+  longitude?: number;
+  triggerRadius?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -154,11 +157,17 @@ export interface ListPoisResponseData {
 export interface CreatePoiRequest {
   name: string;
   description?: string;
+  latitude?: number;
+  longitude?: number;
+  triggerRadius?: number;
 }
 
 export interface UpdatePoiRequest {
   name: string;
   description?: string;
+  latitude?: number;
+  longitude?: number;
+  triggerRadius?: number;
 }
 
 export interface ContentItem {

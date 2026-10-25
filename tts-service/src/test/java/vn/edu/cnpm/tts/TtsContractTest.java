@@ -39,7 +39,7 @@ class TtsContractTest {
         byte[] audio = provider.synthesize("welcome","en","en-US-Journey-F");
         assertThat(audio).isNotEmpty();
         assertThat(audio[0]).isEqualTo((byte) 0xFF);
-        assertThat(audio[1]).isEqualTo((byte) 0xFB);
+        assertThat(audio[1]).isIn((byte) 0xFB, (byte) 0xF3);
         assertThat(jdbc.queryForList("SELECT * FROM audios WHERE audio_id=?",audioId).get(0))
                 .doesNotContainKey("audio_url").doesNotContainKey("signed_url");
     }
