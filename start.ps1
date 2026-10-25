@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Khởi động toàn bộ Hệ thống Thuyết minh Tự động Đa ngôn ngữ bằng Docker.
 .PARAMETER Full
@@ -207,7 +207,10 @@ for ($i = 1; $i -le $maxAttempts; $i++) {
     Write-Host -NoNewline "."
     Start-Sleep -Seconds 2
     try {
-        $res = Invoke-RestMethod -Uri "http://localhost:8080/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
+        $res = Invoke-RestMethod -Uri "http://127.0.0.1:8080/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
+        if ($null -eq $res) {
+            $res = Invoke-RestMethod -Uri "http://localhost:8080/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
+        }
         if ($res.status -eq 'UP' -or $res.data.state -eq 'UP') {
             $ready = $true
             break
