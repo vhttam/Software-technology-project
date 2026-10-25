@@ -1,0 +1,109 @@
+name: Docker Smoke Test (E2E & RAM Benchmark)
+
+on:
+  push:
+    branches: [main, 'refactor/**', 'feat/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  docker-smoke-test:
+    name: Build, Run Lite Profile, Verify 6-Lang Job & Measure RAM
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (ffmpeg, jq, curl)
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg jq curl
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare environment configuration (.env)
+        shell: bash
+        run: |
+          chmod +x start.sh stop.sh logs.sh reset.sh scripts/*.sh
+          cp .env.example .env
+          # Ensure PROVIDER_MODE is stub (offline fixture)
+          if grep -q "PROVIDER_MODE=" .env; then
+            sed -i 's/PROVIDER_MODE=.*/PROVIDER_MODE=stub/g' .env
+          else
+            echo "PROVIDER_MODE=stub" >> .env
+          fi
+          # Generate random dynamic admin password for smoke test run (not hardcoded)
+          RANDOM_ADMIN_PASS="Admin@$(openssl rand -hex 6)!"
+          sed -i "s/BOOTSTRAP_ADMIN_PASSWORD=.*/BOOTSTRAP_ADMIN_PASSWORD=${RANDOM_ADMIN_PASS}/g" .env
+          sed -i "s/GATEWAY_SERVICE_TOKEN=.*/GATEWAY_SERVICE_TOKEN=tok-gw-test-6lang/g" .env
+          sed -i "s/AUTH_SERVICE_TOKEN=.*/AUTH_SERVICE_TOKEN=tok-auth-test-6lang/g" .env
+          sed -i "s/CONTENT_SERVICE_TOKEN=.*/CONTENT_SERVICE_TOKEN=tok-content-test-6lang/g" .env
+          sed -i "s/NARRATION_SERVICE_TOKEN=.*/NARRATION_SERVICE_TOKEN=tok-narration-test-6lang/g" .env
+          sed -i "s/TRANSLATION_SERVICE_TOKEN=.*/TRANSLATION_SERVICE_TOKEN=tok-trans-test-6lang/g" .env
+          sed -i "s/TTS_SERVICE_TOKEN=.*/TTS_SERVICE_TOKEN=tok-tts-test-6lang/g" .env
+
+      - name: Build all 7 Docker images
+        shell: bash
+        run: |
+          docker compose build
+
+      - name: Start services via start.sh
+        shell: bash
+        run: |
+          ./start.sh
+
+      - name: Check container status and wait for healthy
+        shell: bash
+        run: |
+          echo "=== Docker container status ==="
+          docker compose ps
+          echo "Verifying all healthchecks..."
+          for i in $(seq 1 30); do
+            UNHEALTHY=$(docker compose ps --format '{{.Service}}: {{.Health}}' | grep -v 'healthy' || true)
+            if [ -z "$UNHEALTHY" ]; then
+              echo "All services report healthy!"
+              break
+            fi
+            echo "Waiting for services... ($i/30)"
+            sleep 2
+          done
+          docker compose ps
+
+      - name: Execute End-to-End Smoke Test Script (scripts/smoke-test.sh)
+        shell: bash
+        run: |
+          chmod +x scripts/smoke-test.sh
+          ./scripts/smoke-test.sh
+
+      - name: Measure RAM and CPU Resource Usage (docker stats)
+        shell: bash
+        run: |
+          echo "=========================================================="
+          echo "          DOCKER CONTAINER RESOURCE USAGE (RAM/CPU)"
+          echo "=========================================================="
+          docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.CPUPerc}}"
+          echo "=========================================================="
+
+      - name: Export container logs for troubleshooting
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          docker compose logs > artifacts/docker-compose-smoke-test.log 2>&1
+
+      - name: Upload Docker logs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-compose-smoke-test-logs
+          path: artifacts/docker-compose-smoke-test.log
+
+      - name: Tear down Docker Compose environment
+        if: always()
+        shell: bash
+        run: |
+          docker compose down -v

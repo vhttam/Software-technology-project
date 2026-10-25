@@ -1,0 +1,13 @@
+.git
+.idea
+.vscode
+**/target
+**/node_modules
+dist
+.env
+THONG-TIN-DANG-NHAP.txt
+*.log
+*.key
+*.pem
+*.pk8
+PROJECT_OVERVIEW.md
