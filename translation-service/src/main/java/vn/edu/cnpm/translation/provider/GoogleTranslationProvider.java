@@ -93,7 +93,7 @@ public class GoogleTranslationProvider implements TranslationProvider {
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("User-Agent", USER_AGENT)
-                    .timeout(Duration.ofSeconds(10))
+                    .timeout(Duration.ofSeconds(6))
                     .GET()
                     .build();
 
@@ -110,13 +110,16 @@ public class GoogleTranslationProvider implements TranslationProvider {
 
         // 2. Secondary: clients5 Google Translate endpoint
         try {
-            String url = "https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl="
+            String clients5Base = (googleTranslateBaseUrl != null && !googleTranslateBaseUrl.contains("translate.googleapis.com"))
+                    ? googleTranslateBaseUrl
+                    : "https://clients5.google.com";
+            String url = clients5Base + "/translate_a/t?client=dict-chrome-ex&sl="
                     + encodedSl + "&tl=" + encodedTl + "&q=" + encodedText;
 
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("User-Agent", USER_AGENT)
-                    .timeout(Duration.ofSeconds(10))
+                    .timeout(Duration.ofSeconds(6))
                     .GET()
                     .build();
 
@@ -139,7 +142,7 @@ public class GoogleTranslationProvider implements TranslationProvider {
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("User-Agent", USER_AGENT)
-                    .timeout(Duration.ofSeconds(10))
+                    .timeout(Duration.ofSeconds(6))
                     .GET()
                     .build();
 

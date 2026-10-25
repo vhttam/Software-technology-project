@@ -89,10 +89,7 @@ public class GoogleTtsProvider implements TtsProvider {
             }
         }
 
-        // 3. Fallback: synthetic MP3 frames so playback always works
-        int durationSeconds = Math.max(2, (int) Math.ceil((double) text.length() / 12.0));
-        int frameCount = (int) Math.round(durationSeconds * 38.28);
-        return generateSyntheticToneFrames(Math.max(80, frameCount));
+        throw new RuntimeException("TTS provider failed to synthesize audio for language: " + l);
     }
 
     private byte[] synthesizeViaOnlineTts(String text, String lang) {
