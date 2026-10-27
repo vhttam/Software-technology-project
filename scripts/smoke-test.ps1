@@ -1,4 +1,4 @@
-# PowerShell script for E2E Smoke Test
+﻿# PowerShell script for E2E Smoke Test
 $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot | Split-Path
 
@@ -126,7 +126,7 @@ for ($i = 1; $i -le 60; $i++) {
     try {
         $detail = Invoke-RestMethod -Uri "$gatewayUrl/api/v1/jobs/$jobId" -Method Get -Headers @{ "Authorization" = "Bearer $token" }
         $status = $detail.data.status
-        Write-Host "  Lần kiểm tra $i: Trạng thái Job = $status" -ForegroundColor Gray
+        Write-Host "  Lần kiểm tra $($i): Trạng thái Job = $status" -ForegroundColor Gray
         if ($status -eq "PUBLISHED" -or $status -eq "COMPLETED") {
             $jobDone = $true
             break
@@ -164,7 +164,7 @@ try {
         $outFile = Join-Path $tempDir "audio_$l.mp3"
         Invoke-WebRequest -Uri $audioUrl -OutFile $outFile -UseBasicParsing
         $fileSize = (Get-Item $outFile).Length
-        Write-Host "  [OK] Ngôn ngữ $l: Tải thành công ($fileSize bytes) -> $audioUrl" -ForegroundColor Green
+        Write-Host "  [OK] Ngôn ngữ $($l): Tải thành công ($fileSize bytes) -> $audioUrl" -ForegroundColor Green
         if ($fileSize -lt 500) {
             Write-Host "[LỖI] Tệp âm thanh $l quá nhỏ (< 500 bytes)." -ForegroundColor Red
             exit 1

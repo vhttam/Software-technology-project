@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 echo ==========================================================
 echo   DANG BUILD LAI TOAN BO DOCKER IMAGES (BO QUA CACHE)...
 echo ==========================================================

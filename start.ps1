@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Khởi động toàn bộ Hệ thống Thuyết minh Tự động Đa ngôn ngữ bằng Docker.
 .PARAMETER Full
