@@ -1,4 +1,4 @@
-# scripts/scan-secrets.ps1
+﻿# scripts/scan-secrets.ps1
 $ErrorActionPreference = "Stop"
 
 $repoRoot = $PSScriptRoot | Split-Path

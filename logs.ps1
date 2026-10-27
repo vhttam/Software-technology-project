@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Theo dõi log của các container trong hệ thống.
 .PARAMETER Service
