@@ -1,0 +1,4 @@
+ALTER TABLE content_versions ALTER COLUMN title NVARCHAR(255) NOT NULL;
+ALTER TABLE content_versions ALTER COLUMN text_content NVARCHAR(MAX) NOT NULL;
+ALTER TABLE points_of_interest ALTER COLUMN name NVARCHAR(255) NOT NULL;
+ALTER TABLE points_of_interest ALTER COLUMN description NVARCHAR(2000) NULL;

@@ -14,7 +14,7 @@ services:
       - |
         echo "Creating application databases if not existing..."
         for db in authdb contentdb narrationdb translationdb ttsdb; do
-          /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD:-LocalDevPassword123!}" -C -Q "IF DB_ID(N'$$db') IS NULL CREATE DATABASE [$$db];"
+          /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD:-LocalDevPassword123!}" -C -Q "IF DB_ID(N'$$db') IS NULL CREATE DATABASE [$$db] COLLATE Latin1_General_100_CI_AS_SC_UTF8;"
         done
         echo "Databases initialized successfully."
 

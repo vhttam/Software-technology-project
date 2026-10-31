@@ -1,0 +1,1 @@
+ALTER TABLE translations ALTER COLUMN text_content NVARCHAR(MAX) NOT NULL;

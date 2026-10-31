@@ -15,3 +15,4 @@ tts-service/data/
 **/data/audio/
 .vite/
 web/.vite/
+.vs/
