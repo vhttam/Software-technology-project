@@ -1,0 +1,512 @@
+<mxfile host="app.diagrams.net" modified="2026-11-03T10:35:00.000Z" agent="Antigravity" version="24.0.0">
+  <diagram name="DFD-Muc-1" id="dfd-level-1-cnpm">
+    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- TIÊU ĐỀ HỆ THỐNG -->
+        <mxCell id="title_banner" value="SƠ ĐỒ LUỒNG DỮ LIỆU MỨC 1 (DFD LEVEL 1)&#xa;HỆ THỐNG THUYẾT MINH TỰ ĐỘNG ĐA NGÔN NGỮ" style="shape=rectangle;fillColor=#1E293B;strokeColor=none;fontColor=#FFFFFF;rounded=1;fontSize=18;fontStyle=1;align=center;verticalAlign=middle;fontFamily=Segoe UI;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="50" y="30" width="1860" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- CHÚ THÍCH QUY ƯỚC HÌNH VẼ (LEGEND) -->
+        <mxCell id="legend_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#CBD5E1;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="50" y="105" width="1860" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_text_title" value="QUY ƯỚC KÝ HIỆU DFD:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=12;fontStyle=1;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="70" y="117" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_actor" value="Tác nhân ngoài (Actor)" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#EEF2FF;strokeColor=#4338CA;strokeWidth=2;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#312E81;align=center;" vertex="1" parent="1">
+          <mxGeometry x="240" y="113" width="150" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_proc" value="Chức năng / Tiến trình" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#FEF3C7;strokeColor=#D97706;strokeWidth=2;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#78350F;align=center;" vertex="1" parent="1">
+          <mxGeometry x="510" y="112" width="140" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_store" value="Kho dữ liệu (2 đường //)" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;fillColor=#F8FAFC;strokeColor=#0F172A;strokeWidth=2;align=center;verticalAlign=middle;fontFamily=Segoe UI;fontSize=11;whiteSpace=wrap;html=1;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="770" y="115" width="160" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_flow" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;html=1;strokeColor=#334155;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1040" y="130" as="sourcePoint" />
+            <mxPoint x="1140" y="130" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="leg_flow_lbl" value="Luồng dữ liệu (Data Flow)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=11;fontColor=#334155;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="117" width="160" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- ========================================== -->
+        <!-- 1. CÁC TÁC NHÂN NGOÀI (ACTORS - HÌNH CHỮ NHẬT) -->
+        <!-- ========================================== -->
+
+        <!-- Actor: Super Admin -->
+        <mxCell id="actor_super_admin" value="Quản trị viên Hệ thống&#xa;(Super Admin)" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fillColor=#EEF2FF;strokeColor=#4338CA;fontColor=#312E81;fontFamily=Segoe UI;fontSize=13;fontStyle=1;align=center;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="190" width="180" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Actor: Content Admin -->
+        <mxCell id="actor_content_admin" value="Quản trị viên Nội dung&#xa;(Content Admin)" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fillColor=#EEF2FF;strokeColor=#4338CA;fontColor=#312E81;fontFamily=Segoe UI;fontSize=13;fontStyle=1;align=center;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="470" width="180" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- Actor: Visitor / Tourist -->
+        <mxCell id="actor_visitor" value="Khách tham quan&#xa;(Visitor / Tourist)" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fillColor=#EEF2FF;strokeColor=#4338CA;fontColor=#312E81;fontFamily=Segoe UI;fontSize=13;fontStyle=1;align=center;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="870" width="180" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- Actor: External Translation Provider -->
+        <mxCell id="actor_trans_api" value="Hệ thống Dịch thuật ngoài&#xa;(Google Translate API)" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fillColor=#FEF2F2;strokeColor=#DC2626;fontColor=#7F1D1D;fontFamily=Segoe UI;fontSize=13;fontStyle=1;align=center;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="1710" y="420" width="190" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Actor: External TTS Provider -->
+        <mxCell id="actor_tts_api" value="Hệ thống Giọng đọc ngoài&#xa;(Google TTS / Windows SAPI)" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fillColor=#FEF2F2;strokeColor=#DC2626;fontColor=#7F1D1D;fontFamily=Segoe UI;fontSize=13;fontStyle=1;align=center;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="1710" y="730" width="190" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ========================================== -->
+        <!-- 2. CÁC TIẾN TRÌNH / CHỨC NĂNG (HÌNH TRÒN) -->
+        <!-- ========================================== -->
+
+        <!-- Process 1.0 -->
+        <mxCell id="proc_1" value="1.0&#xa;Quản lý Xác thực&#xa;&amp; Tài khoản" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=2;fillColor=#FEF3C7;strokeColor=#D97706;fontColor=#78350F;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=center;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="160" width="140" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- Process 2.0 -->
+        <mxCell id="proc_2" value="2.0&#xa;Quản lý Điểm tham quan&#xa;&amp; Nội dung gốc" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=2;fillColor=#FEF3C7;strokeColor=#D97706;fontColor=#78350F;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=center;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="440" width="145" height="145" as="geometry" />
+        </mxCell>
+
+        <!-- Process 3.0 -->
+        <mxCell id="proc_3" value="3.0&#xa;Điều phối Tác vụ&#xa;Thuyết minh (Job)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=2;fillColor=#FEF3C7;strokeColor=#D97706;fontColor=#78350F;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=center;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="780" y="440" width="145" height="145" as="geometry" />
+        </mxCell>
+
+        <!-- Process 4.0 -->
+        <mxCell id="proc_4" value="4.0&#xa;Xử lý Dịch thuật&#xa;Đa ngôn ngữ" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=2;fillColor=#FEF3C7;strokeColor=#D97706;fontColor=#78350F;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=center;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="390" width="140" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- Process 5.0 -->
+        <mxCell id="proc_5" value="5.0&#xa;Tổng hợp &amp;&#xa;Kiểm định TTS" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=2;fillColor=#FEF3C7;strokeColor=#D97706;fontColor=#78350F;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=center;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="700" width="140" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- Process 6.0 -->
+        <mxCell id="proc_6" value="6.0&#xa;Cung cấp Thuyết minh&#xa;&amp; Quét QR Du khách" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=2;fillColor=#FEF3C7;strokeColor=#D97706;fontColor=#78350F;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=center;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="840" width="145" height="145" as="geometry" />
+        </mxCell>
+
+        <!-- ========================================== -->
+        <!-- 3. KHO DỮ LIỆU (2 ĐƯỜNG THẲNG SONG SONG) -->
+        <!-- ========================================== -->
+
+        <!-- Store D1: Auth DB -->
+        <mxCell id="store_d1" value="D1  |  Kho Dữ liệu Người dùng &amp; Quyền (Auth DB)" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;fillColor=#F8FAFC;strokeColor=#0F172A;strokeWidth=2;align=center;verticalAlign=middle;fontFamily=Segoe UI;fontSize=12;whiteSpace=wrap;html=1;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="720" y="205" width="270" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Store D2: Content DB -->
+        <mxCell id="store_d2" value="D2  |  Kho Dữ liệu Điểm tham quan &amp; Nội dung (Content DB)" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;fillColor=#F8FAFC;strokeColor=#0F172A;strokeWidth=2;align=center;verticalAlign=middle;fontFamily=Segoe UI;fontSize=12;whiteSpace=wrap;html=1;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="310" y="670" width="290" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Store D3: Job DB -->
+        <mxCell id="store_d3" value="D3  |  Kho Dữ liệu Tác vụ &amp; Hàng đợi (Job DB)" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;fillColor=#F8FAFC;strokeColor=#0F172A;strokeWidth=2;align=center;verticalAlign=middle;fontFamily=Segoe UI;fontSize=12;whiteSpace=wrap;html=1;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="720" y="670" width="270" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Store D4: Translation DB -->
+        <mxCell id="store_d4" value="D4  |  Kho Dữ liệu Bản dịch Đa ngôn ngữ (Translation DB)" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;fillColor=#F8FAFC;strokeColor=#0F172A;strokeWidth=2;align=center;verticalAlign=middle;fontFamily=Segoe UI;fontSize=12;whiteSpace=wrap;html=1;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="240" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Store D5: Media DB -->
+        <mxCell id="store_d5" value="D5  |  Kho Dữ liệu Metadata Âm thanh (Media DB)" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;fillColor=#F8FAFC;strokeColor=#0F172A;strokeWidth=2;align=center;verticalAlign=middle;fontFamily=Segoe UI;fontSize=12;whiteSpace=wrap;html=1;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="920" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Store D6: Audio Object Storage -->
+        <mxCell id="store_d6" value="D6  |  Kho Tệp Âm thanh MP3 (Audio Storage)" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;fillColor=#F8FAFC;strokeColor=#0F172A;strokeWidth=2;align=center;verticalAlign=middle;fontFamily=Segoe UI;fontSize=12;whiteSpace=wrap;html=1;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="1030" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Store D7: Presence Cache -->
+        <mxCell id="store_d7" value="D7  |  Kho Trạng thái Khách trực tuyến (Redis Presence ZSET)" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;fillColor=#F8FAFC;strokeColor=#0F172A;strokeWidth=2;align=center;verticalAlign=middle;fontFamily=Segoe UI;fontSize=12;whiteSpace=wrap;html=1;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="310" y="1080" width="290" height="50" as="geometry" />
+        </mxCell>
+
+
+        <!-- ========================================== -->
+        <!-- 4. CÁC LUỒNG DỮ LIỆU (DATA FLOWS - MŨI TÊN) -->
+        <!-- ========================================== -->
+
+        <!-- PHÂN HỆ 1.0: AUTH & USER -->
+        <!-- Flow: Super Admin -> 1.0 -->
+        <mxCell id="f_sa_to_p1" value="Thông tin đăng nhập, Yêu cầu quản lý user" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#4338CA;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="actor_super_admin" target="proc_1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="210" />
+              <mxPoint x="310" y="210" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 1.0 -> Super Admin -->
+        <mxCell id="f_p1_to_sa" value="Access Token JWT, Danh sách tài khoản" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#4338CA;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_1" target="actor_super_admin">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="250" />
+              <mxPoint x="310" y="250" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: Content Admin -> 1.0 -->
+        <mxCell id="f_ca_to_p1" value="Đăng nhập (User/Pass)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#4338CA;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="actor_content_admin" target="proc_1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="290" y="490" />
+              <mxPoint x="290" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 1.0 -> Content Admin -->
+        <mxCell id="f_p1_to_ca" value="Token JWT (CONTENT_ADMIN)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#4338CA;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_1" target="actor_content_admin">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="320" y="295" />
+              <mxPoint x="320" y="520" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 1.0 <-> D1 -->
+        <mxCell id="f_p1_to_d1" value="Lưu tài khoản, băm BCrypt, cập nhật khóa" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_1" target="store_d1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="215" />
+              <mxPoint x="620" y="215" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_d1_to_p1" value="Đọc thông tin xác thực &amp; quyền" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="store_d1" target="proc_1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="245" />
+              <mxPoint x="620" y="245" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+
+        <!-- PHÂN HỆ 2.0: POI & CONTENT -->
+        <!-- Flow: Content Admin -> 2.0 -->
+        <mxCell id="f_ca_to_p2" value="Thông tin POI, Tọa độ GPS, Văn bản gốc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="actor_content_admin" target="proc_2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="480" />
+              <mxPoint x="310" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 2.0 -> Content Admin -->
+        <mxCell id="f_p2_to_ca" value="Ảnh mã QR (PNG/SVG), Xác nhận lưu phiên bản v{n}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_2" target="actor_content_admin">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="535" />
+              <mxPoint x="310" y="535" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 2.0 <-> D2 -->
+        <mxCell id="f_p2_to_d2" value="Lưu POI, Content Version, Mã QR" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_2" target="store_d2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="430" y="630" />
+              <mxPoint x="430" y="630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_d2_to_p2" value="Đọc thông tin POI, phiên bản gốc hiện hành" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="store_d2" target="proc_2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="480" y="630" />
+              <mxPoint x="480" y="630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+
+        <!-- PHÂN HỆ 3.0: NARRATION JOB ORCHESTRATION -->
+        <!-- Flow: Content Admin -> 3.0 -->
+        <mxCell id="f_ca_to_p3" value="Lệnh tạo Job thuyết minh (Mã ngôn ngữ đích, Idempotency-Key)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#D97706;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="actor_content_admin" target="proc_3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="200" y="420" />
+              <mxPoint x="750" y="420" />
+              <mxPoint x="750" y="470" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 3.0 -> Content Admin -->
+        <mxCell id="f_p3_to_ca" value="Tiến độ xử lý thời gian thực (SSE Stream / Polling)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#D97706;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_3" target="actor_content_admin">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="760" y="380" />
+              <mxPoint x="180" y="380" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 2.0 -> 3.0 -->
+        <mxCell id="f_p2_to_p3" value="Văn bản gốc cần dịch&#xa;(ContentId, Text, Version)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#059669;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_2" target="proc_3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="650" y="512" />
+              <mxPoint x="650" y="512" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 3.0 <-> D3 -->
+        <mxCell id="f_p3_to_d3" value="Tạo Job, ghi nhận trạng thái %" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_3" target="store_d3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="630" />
+              <mxPoint x="830" y="630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_d3_to_p3" value="Kiểm tra trạng thái Job &amp; Idempotency" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="store_d3" target="proc_3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="880" y="630" />
+              <mxPoint x="880" y="630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+
+        <!-- PHÂN HỆ 4.0: DỊCH THUẬT ĐA NGÔN NGỮ -->
+        <!-- Flow: 3.0 -> 4.0 -->
+        <mxCell id="f_p3_to_p4" value="Yêu cầu dịch (Văn bản gốc, Ngôn ngữ nguồn/đích)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#D97706;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_3" target="proc_4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1090" y="470" />
+              <mxPoint x="1090" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 4.0 -> Translation API -->
+        <mxCell id="f_p4_to_tapi" value="Gửi đoạn văn bản cần dịch" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_4" target="actor_trans_api">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1560" y="440" />
+              <mxPoint x="1560" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: Translation API -> 4.0 -->
+        <mxCell id="f_tapi_to_p4" value="Văn bản đã dịch từng đoạn" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="actor_trans_api" target="proc_4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1560" y="480" />
+              <mxPoint x="1560" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 4.0 <-> D4 -->
+        <mxCell id="f_p4_to_d4" value="Lưu bản dịch hoàn chỉnh" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_4" target="store_d4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1310" y="340" />
+              <mxPoint x="1310" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_d4_to_p4" value="Đọc bản dịch có sẵn" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="store_d4" target="proc_4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1370" y="340" />
+              <mxPoint x="1370" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 4.0 -> 3.0 (Callback / Event) -->
+        <mxCell id="f_p4_to_p3" value="Sự kiện: Dịch hoàn tất (Translation Completed)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#059669;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_4" target="proc_3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1090" y="520" />
+              <mxPoint x="1090" y="520" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+
+        <!-- PHÂN HỆ 5.0: TỔNG HỢP & KIỂM ĐỊNH TTS -->
+        <!-- Flow: 3.0 -> 5.0 -->
+        <mxCell id="f_p3_to_p5" value="Yêu cầu giọng đọc (Văn bản dịch, Voice Profile)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#D97706;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_3" target="proc_5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="852" y="740" />
+              <mxPoint x="1270" y="740" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 5.0 -> TTS API -->
+        <mxCell id="f_p5_to_ttsapi" value="Gửi văn bản &amp; mã ngôn ngữ" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_5" target="actor_tts_api">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1560" y="750" />
+              <mxPoint x="1560" y="750" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: TTS API -> 5.0 -->
+        <mxCell id="f_ttsapi_to_p5" value="Dữ liệu âm thanh thô (Audio Stream)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="actor_tts_api" target="proc_5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1560" y="790" />
+              <mxPoint x="1560" y="790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 5.0 -> D6 -->
+        <mxCell id="f_p5_to_d6" value="Ghi tệp âm thanh hoàn chỉnh (.mp3)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_5" target="store_d6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1440" y="810" />
+              <mxPoint x="1440" y="1055" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 5.0 <-> D5 -->
+        <mxCell id="f_p5_to_d5" value="Lưu metadata âm thanh &amp; chất lượng" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_5" target="store_d5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1310" y="880" />
+              <mxPoint x="1310" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_d5_to_p5" value="Đọc thông tin audio, chữ ký HMAC" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="store_d5" target="proc_5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1370" y="880" />
+              <mxPoint x="1370" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 5.0 -> 3.0 (Callback / Event) -->
+        <mxCell id="f_p5_to_p3" value="Sự kiện: Tổng hợp TTS hoàn tất (TTS Completed)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#059669;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_5" target="proc_3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1230" y="780" />
+              <mxPoint x="890" y="780" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+
+        <!-- PHÂN HỆ 6.0: CUNG CẤP THUYẾT MINH DU KHÁCH -->
+        <!-- Flow: Visitor -> 6.0 -->
+        <mxCell id="f_vis_to_p6" value="Mã QR quét được / Tọa độ GPS / Chọn ngôn ngữ" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#059669;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="actor_visitor" target="proc_6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="880" />
+              <mxPoint x="310" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 6.0 -> Visitor -->
+        <mxCell id="f_p6_to_vis" value="Thông tin POI, Phụ đề, Âm thanh thuyết minh (Signed URL)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#059669;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_6" target="actor_visitor">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="925" />
+              <mxPoint x="310" y="925" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: Visitor -> 6.0 (Presence Heartbeat) -->
+        <mxCell id="f_vis_hb_to_p6" value="Tín hiệu hiện diện định kỳ Heartbeat (clientId, poiId, lang)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#6B7280;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;dashed=1;" edge="1" parent="1" source="actor_visitor" target="proc_6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="290" y="955" />
+              <mxPoint x="290" y="955" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 6.0 <-> D2 -->
+        <mxCell id="f_p6_to_d2" value="Tra cứu POI theo mã QR / Tọa độ gần nhất" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_6" target="store_d2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="430" y="780" />
+              <mxPoint x="430" y="780" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 6.0 <-> D4 -->
+        <mxCell id="f_p6_to_d4" value="Đọc phụ đề theo ngôn ngữ đã chọn" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_6" target="store_d4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="670" y="900" />
+              <mxPoint x="670" y="320" />
+              <mxPoint x="1220" y="320" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 6.0 <-> D5 & D6 -->
+        <mxCell id="f_p6_to_d5" value="Lấy Signed URL &amp; Stream file MP3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_6" target="store_d5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="550" y="945" />
+              <mxPoint x="1200" y="945" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: 6.0 <-> D7 -->
+        <mxCell id="f_p6_to_d7" value="Ghi nhận &amp; Cập nhật du khách trực tuyến (Redis ZSET)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#0F172A;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_6" target="store_d7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="452" y="1030" />
+              <mxPoint x="452" y="1030" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Flow: D7 -> 2.0 (Metrics to Dashboard) -->
+        <mxCell id="f_d7_to_p2" value="Số liệu thống kê lượng khách trực tuyến (Metrics)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#059669;fontFamily=Segoe UI;fontSize=11;labelBackgroundColor=#FFFFFF;dashed=1;" edge="1" parent="1" source="store_d7" target="proc_2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="270" y="1105" />
+              <mxPoint x="270" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
