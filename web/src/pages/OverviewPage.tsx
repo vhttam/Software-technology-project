@@ -219,6 +219,105 @@ export const OverviewPage: React.FC = () => {
             )}
           </div>
 
+          {/* Biểu đồ phân tích trực quan (Visual Analytics Section) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px', marginTop: '24px' }}>
+            {/* 1. Biểu đồ tròn: Cơ cấu ngôn ngữ khách nghe */}
+            <div className="panel" style={{ margin: 0, padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div>
+                  <div className="eyebrow" style={{ color: '#0284c7' }}>THỊ PHẦN NGÔN NGỮ</div>
+                  <h3 style={{ margin: '4px 0 0 0', fontSize: '16px', color: '#0f172a' }}>Tỷ lệ ngôn ngữ du khách sử dụng</h3>
+                </div>
+                <span style={{ fontSize: '11px', background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '12px', fontWeight: 600 }}>Thống kê tháng</span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: '16px', flexWrap: 'wrap' }}>
+                {/* SVG Donut Chart */}
+                <div style={{ position: 'relative', width: '150px', height: '150px' }}>
+                  <svg width="150" height="150" viewBox="0 0 42 42">
+                    <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e2e8f0" strokeWidth="6"></circle>
+                    {/* Tiếng Việt: 42% */}
+                    <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#0284c7" strokeWidth="6" strokeDasharray="42 58" strokeDashoffset="25"></circle>
+                    {/* Tiếng Anh: 32% */}
+                    <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#10b981" strokeWidth="6" strokeDasharray="32 68" strokeDashoffset="83"></circle>
+                    {/* Tiếng Pháp: 14% */}
+                    <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#f59e0b" strokeWidth="6" strokeDasharray="14 86" strokeDashoffset="51"></circle>
+                    {/* Khác (Hàn, Nhật, Trung): 12% */}
+                    <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#8b5cf6" strokeWidth="6" strokeDasharray="12 88" strokeDashoffset="37"></circle>
+                  </svg>
+                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#0f172a' }}>100%</div>
+                    <div style={{ fontSize: '10px', color: '#64748b' }}>Đa ngôn ngữ</div>
+                  </div>
+                </div>
+
+                {/* Chú thích Donut */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#0284c7' }}></span>
+                    <span style={{ color: '#334155', fontWeight: 500 }}>Tiếng Việt (vi): <strong>42%</strong></span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+                    <span style={{ color: '#334155', fontWeight: 500 }}>Tiếng Anh (en): <strong>32%</strong></span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b' }}></span>
+                    <span style={{ color: '#334155', fontWeight: 500 }}>Tiếng Pháp (fr): <strong>14%</strong></span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#8b5cf6' }}></span>
+                    <span style={{ color: '#334155', fontWeight: 500 }}>Khác (zh, ja, ko): <strong>12%</strong></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Biểu đồ cột: Lưu lượng khách theo khung giờ */}
+            <div className="panel" style={{ margin: 0, padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div>
+                  <div className="eyebrow" style={{ color: '#10b981' }}>PHÂN BỔ TRUY CẬP</div>
+                  <h3 style={{ margin: '4px 0 0 0', fontSize: '16px', color: '#0f172a' }}>Lượng khách nghe theo khung giờ</h3>
+                </div>
+                <span style={{ fontSize: '11px', background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: '12px', fontWeight: 600 }}>Hôm nay</span>
+              </div>
+
+              {/* Bar Chart Visualization */}
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '130px', padding: '10px 10px 0 10px', borderBottom: '1px solid #e2e8f0', gap: '8px' }}>
+                {[
+                  { time: '08h', height: '35%', count: 45 },
+                  { time: '10h', height: '85%', count: 120, highlight: true },
+                  { time: '12h', height: '40%', count: 52 },
+                  { time: '14h', height: '95%', count: 140, highlight: true },
+                  { time: '16h', height: '75%', count: 98 },
+                  { time: '18h', height: '30%', count: 38 },
+                ].map((bar, idx) => (
+                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end' }}>
+                    <span style={{ fontSize: '10px', color: bar.highlight ? '#059669' : '#64748b', fontWeight: bar.highlight ? 700 : 500, marginBottom: '4px' }}>
+                      {bar.count}
+                    </span>
+                    <div
+                      style={{
+                        width: '100%',
+                        maxWidth: '28px',
+                        height: bar.height,
+                        backgroundColor: bar.highlight ? '#10b981' : '#cbd5e1',
+                        borderRadius: '4px 4px 0 0',
+                        transition: 'height 0.3s ease',
+                      }}
+                    ></div>
+                    <span style={{ fontSize: '11px', color: '#475569', marginTop: '6px', fontWeight: 500 }}>{bar.time}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginTop: '8px' }}>
+                <span>Giờ cao điểm: <strong>14:00 - 15:30</strong></span>
+                <span>Tỷ lệ hoàn thành bài nghe: <strong>88.4%</strong></span>
+              </div>
+            </div>
+          </div>
+
           <div className="panel" style={{ marginTop: '24px' }}>
             <div className="panel-heading">
               <div>

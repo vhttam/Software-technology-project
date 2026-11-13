@@ -42,6 +42,7 @@ export const PoisPage: React.FC = () => {
   const tileLayerRef = useRef<any>(null);
   const markerGroupRef = useRef<any>(null);
   const tempMarkerRef = useRef<any>(null);
+  const tempCircleRef = useRef<any>(null);
   const [mapMode, setMapMode] = useState<'streets' | 'satellite'>('streets');
 
   // QR Modal state
@@ -147,12 +148,24 @@ export const PoisPage: React.FC = () => {
       tileLayerRef.current = newLayer;
     }
 
-    // Refresh markers for current list of POIs
+    // Refresh markers and geofence circles for current list of POIs
     if (markerGroupRef.current) {
       markerGroupRef.current.clearLayers();
       pois.forEach((poi, index) => {
         const pLat = poi.latitude ?? (10.772 + (index * 0.003));
         const pLng = poi.longitude ?? (106.700 + (index * 0.002));
+        const radius = poi.triggerRadius || 50;
+
+        // Draw Geofence radius circle for each existing POI
+        L.circle([pLat, pLng], {
+          radius: radius,
+          color: '#0284c7',
+          weight: 1.5,
+          opacity: 0.6,
+          fillColor: '#38bdf8',
+          fillOpacity: 0.12,
+          dashArray: '4, 4',
+        }).addTo(markerGroupRef.current);
 
         const poiIcon = L.divIcon({
           className: 'admin-poi-pin',
@@ -163,10 +176,11 @@ export const PoisPage: React.FC = () => {
 
         const marker = L.marker([pLat, pLng], { icon: poiIcon }).addTo(markerGroupRef.current);
         marker.bindPopup(`
-          <div style="font-family: inherit; font-size: 13px; line-height: 1.4; min-width: 170px;">
+          <div style="font-family: inherit; font-size: 13px; line-height: 1.4; min-width: 180px;">
             <strong style="color: #0f172a; font-size: 14px;">${poi.name}</strong>
             <p style="margin: 4px 0 6px 0; color: #475569; font-size: 12px;">${poi.description || 'Chưa có mô tả'}</p>
-            <div style="font-size: 11px; color: #0284c7; font-weight:600; margin-bottom: 8px;">Tọa độ: ${pLat.toFixed(4)}, ${pLng.toFixed(4)}</div>
+            <div style="font-size: 11px; color: #0284c7; font-weight:600; margin-bottom: 3px;">📍 Tọa độ: ${pLat.toFixed(4)}, ${pLng.toFixed(4)}</div>
+            <div style="font-size: 11px; color: #059669; font-weight:600; margin-bottom: 8px;">📡 Bán kính Geofence: ${radius}m</div>
             <button id="admin-marker-btn-${poi.poiId}" style="width:100%; background:#0284c7; color:white; border:none; border-radius:6px; padding:5px 8px; font-size:12px; font-weight:600; cursor:pointer;">
               Sửa điểm này
             </button>
@@ -187,7 +201,24 @@ export const PoisPage: React.FC = () => {
     }, 200);
   }, [pois, mapMode]);
 
-  const updateTempMarker = (lat: number, lng: number, map: any) => {
+  const updateTempMarker = (lat: number, lng: number, map: any, radius = triggerRadius) => {
+    // 1. Update or create interactive Geofence circle for editing POI
+    if (tempCircleRef.current) {
+      tempCircleRef.current.setLatLng([lat, lng]);
+      tempCircleRef.current.setRadius(radius);
+    } else {
+      tempCircleRef.current = L.circle([lat, lng], {
+        radius: radius,
+        color: '#ea580c',
+        weight: 2,
+        opacity: 0.9,
+        fillColor: '#f97316',
+        fillOpacity: 0.2,
+        dashArray: '6, 6',
+      }).addTo(map);
+    }
+
+    // 2. Update or create draggable marker
     if (tempMarkerRef.current) {
       tempMarkerRef.current.setLatLng([lat, lng]);
     } else {
@@ -198,10 +229,21 @@ export const PoisPage: React.FC = () => {
         iconAnchor: [16, 32],
       });
       const marker = L.marker([lat, lng], { icon: customPin, draggable: true }).addTo(map);
+      marker.on('drag', (ev: any) => {
+        const pos = ev.target.getLatLng();
+        if (tempCircleRef.current) {
+          tempCircleRef.current.setLatLng(pos);
+        }
+      });
       marker.on('dragend', (ev: any) => {
         const pos = ev.target.getLatLng();
-        setLatitude(Number(pos.lat.toFixed(6)));
-        setLongitude(Number(pos.lng.toFixed(6)));
+        const newLat = Number(pos.lat.toFixed(6));
+        const newLng = Number(pos.lng.toFixed(6));
+        setLatitude(newLat);
+        setLongitude(newLng);
+        if (tempCircleRef.current) {
+          tempCircleRef.current.setLatLng([newLat, newLng]);
+        }
       });
       tempMarkerRef.current = marker;
     }
@@ -211,6 +253,13 @@ export const PoisPage: React.FC = () => {
     setSearch(val);
     loadPois(1, val);
   };
+
+  // Dynamic update of Geofence circle when triggerRadius input changes
+  useEffect(() => {
+    if (tempCircleRef.current) {
+      tempCircleRef.current.setRadius(triggerRadius || 50);
+    }
+  }, [triggerRadius]);
 
   const handleStartCreate = () => {
     setEditingPoi(null);
@@ -222,6 +271,10 @@ export const PoisPage: React.FC = () => {
     if (tempMarkerRef.current && mapInstanceRef.current) {
       mapInstanceRef.current.removeLayer(tempMarkerRef.current);
       tempMarkerRef.current = null;
+    }
+    if (tempCircleRef.current && mapInstanceRef.current) {
+      mapInstanceRef.current.removeLayer(tempCircleRef.current);
+      tempCircleRef.current = null;
     }
   };
 

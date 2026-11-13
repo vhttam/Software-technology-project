@@ -37,12 +37,19 @@ export const VisitorApp: React.FC = () => {
   const [scannerInput, setScannerInput] = useState<string>('');
   const [cameraActive, setCameraActive] = useState<boolean>(false);
 
-  // Narration player modal
+  // Narration player modal & Subtitle Cue Sync
   const [activeNarration, setActiveNarration] = useState<NarrationDetail | null>(null);
   const [narrationNotice, setNarrationNotice] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [loadingNarration, setLoadingNarration] = useState<boolean>(false);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
+  const [activeSentenceIndex, setActiveSentenceIndex] = useState<number>(0);
+
+  // Geofence Auto-Prompt Toast
+  const [geofencePromptPoi, setGeofencePromptPoi] = useState<VisitorPoi | null>(null);
+  const [dismissedGeofencePois, setDismissedGeofencePois] = useState<Record<string, boolean>>({});
 
   // Map & Media refs
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -174,6 +181,18 @@ export const VisitorApp: React.FC = () => {
         if (items.length > 0) {
           setPois(items);
           setFilteredPois(items);
+
+          // Geofence Trigger Check: Check if visitor has entered triggerRadius of closest POI
+          const closest = items[0];
+          const radius = closest.triggerRadius || 50;
+          if (
+            closest.distanceMeters != null &&
+            closest.distanceMeters <= radius &&
+            !dismissedGeofencePois[closest.poiId] &&
+            !activeNarration
+          ) {
+            setGeofencePromptPoi(closest);
+          }
         }
       }
     } catch (err) {
@@ -901,7 +920,7 @@ export const VisitorApp: React.FC = () => {
               </div>
             )}
 
-            {/* Subtitle Box */}
+            {/* Subtitle Box with Real-time Sentence Highlighting and Auto-Scroll */}
             <div className="subtitle-display-panel">
               <div className="subtitle-panel-title">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -912,9 +931,48 @@ export const VisitorApp: React.FC = () => {
                   <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
                 <span>{t.subtitleHeading} ({activeNarration.lang.toUpperCase()}):</span>
+                {isPlaying && (
+                  <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981', animation: 'pulse 1.5s infinite' }}></span>
+                    Đang đồng bộ phụ đề
+                  </span>
+                )}
               </div>
-              <div className="subtitle-scroll-content">
-                {activeNarration.subtitle}
+              <div className="subtitle-scroll-content" id="narration-subtitle-box">
+                {(() => {
+                  const rawText = activeNarration.subtitle || '';
+                  // Split into sentences for synchronized Karaoke cue highlighting
+                  const sentences = rawText
+                    .split(/(?<=[.!?。！？\n])\s+/)
+                    .map((s) => s.trim())
+                    .filter((s) => s.length > 0);
+
+                  if (sentences.length <= 1 || !isPlaying) {
+                    return <div>{rawText}</div>;
+                  }
+
+                  return sentences.map((sentence, sIdx) => {
+                    const isCurrent = sIdx === activeSentenceIndex;
+                    return (
+                      <p
+                        key={sIdx}
+                        id={`cue-sentence-${sIdx}`}
+                        style={{
+                          margin: '6px 0',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          transition: 'all 0.3s ease',
+                          backgroundColor: isCurrent ? 'rgba(14, 165, 233, 0.15)' : 'transparent',
+                          color: isCurrent ? '#0284c7' : '#334155',
+                          fontWeight: isCurrent ? 700 : 400,
+                          borderLeft: isCurrent ? '3px solid #0284c7' : '3px solid transparent',
+                        }}
+                      >
+                        {sentence}
+                      </p>
+                    );
+                  });
+                })()}
               </div>
             </div>
 
@@ -951,6 +1009,40 @@ export const VisitorApp: React.FC = () => {
                     autoPlay
                     onPlay={() => setIsPlaying(true)}
                     onPause={() => setIsPlaying(false)}
+                    onLoadedMetadata={(e) => {
+                      setAudioDuration((e.target as HTMLAudioElement).duration || 0);
+                    }}
+                    onTimeUpdate={(e) => {
+                      const audio = e.target as HTMLAudioElement;
+                      const cTime = audio.currentTime;
+                      const dur = audio.duration || audioDuration;
+                      setCurrentTime(cTime);
+
+                      if (dur > 0 && activeNarration?.subtitle) {
+                        const raw = activeNarration.subtitle;
+                        const sentences = raw
+                          .split(/(?<=[.!?。！？\n])\s+/)
+                          .map((s) => s.trim())
+                          .filter((s) => s.length > 0);
+
+                        if (sentences.length > 0) {
+                          const progress = cTime / dur;
+                          const calculatedIdx = Math.min(
+                            Math.floor(progress * sentences.length),
+                            sentences.length - 1
+                          );
+                          setActiveSentenceIndex(calculatedIdx);
+
+                          // Smooth auto-scroll to current cue sentence
+                          const targetEl = document.getElementById(`cue-sentence-${calculatedIdx}`);
+                          const boxEl = document.getElementById('narration-subtitle-box');
+                          if (targetEl && boxEl) {
+                            const offset = targetEl.offsetTop - boxEl.offsetTop;
+                            boxEl.scrollTo({ top: offset - 30, behavior: 'smooth' });
+                          }
+                        }
+                      }
+                    }}
                     className="styled-audio-element"
                   />
                 </div>
@@ -970,6 +1062,94 @@ export const VisitorApp: React.FC = () => {
                 {t.closePlayerBtn}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. TOAST NOTIFICATION: GEOFENCE AUTO-PROMPT */}
+      {geofencePromptPoi && !activeNarration && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1000,
+            maxWidth: '92%',
+            width: '420px',
+            backgroundColor: '#0f172a',
+            color: '#ffffff',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+            border: '2px solid #0284c7',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            animation: 'slideUp 0.35s ease',
+          }}
+        >
+          <div
+            style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              backgroundColor: '#0284c7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              fontSize: '20px',
+            }}
+          >
+            🎧
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Điểm tham quan lân cận
+            </div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {geofencePromptPoi.poiName || geofencePromptPoi.name}
+            </div>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+              Bạn đang ở trong bán kính {(geofencePromptPoi.distanceMeters || 0).toFixed(0)}m. Bấm để nghe thuyết minh.
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <button
+              onClick={() => {
+                loadNarration(geofencePromptPoi.poiId, selectedLang);
+                setGeofencePromptPoi(null);
+              }}
+              style={{
+                backgroundColor: '#0284c7',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Nghe ngay
+            </button>
+            <button
+              onClick={() => {
+                setDismissedGeofencePois((prev) => ({ ...prev, [geofencePromptPoi.poiId]: true }));
+                setGeofencePromptPoi(null);
+              }}
+              style={{
+                backgroundColor: 'transparent',
+                color: '#64748b',
+                border: 'none',
+                padding: '2px 6px',
+                fontSize: '11px',
+                cursor: 'pointer',
+              }}
+            >
+              Bỏ qua
+            </button>
           </div>
         </div>
       )}
