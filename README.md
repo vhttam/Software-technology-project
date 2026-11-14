@@ -66,7 +66,7 @@ Mục này hướng dẫn các bước nhanh nhất để giải nén file ZIP v
 > 3. Tự động ghi thông tin đăng nhập vào file `THONG-TIN-DANG-NHAP.txt` ở thư mục gốc để người dùng tiện tra cứu.
 > 4. Khởi chạy 7 microservices và 1 message broker qua Docker Compose.
 > 5. Chờ toàn bộ các dịch vụ đạt trạng thái hoạt động bình thường (`healthy` / HTTP 200).
-> 6. Tự động nạp sẵn **2 điểm tham quan** và **1 nội dung thuyết minh mẫu** vào cơ sở dữ liệu để giảng viên có thể trải nghiệm ngay mà không phải nhập liệu thủ công từ đầu.
+> 6. Tự động nạp sẵn **3 điểm tham quan mẫu** cùng nội dung thuyết minh khởi tạo vào cơ sở dữ liệu để giảng viên có thể trải nghiệm ngay mà không phải nhập liệu thủ công từ đầu.
 
 ### Bước 4: Địa chỉ truy cập & Tài khoản Đăng nhập Demo
 
@@ -80,12 +80,12 @@ Sau khi màn hình terminal thông báo **"HỆ THỐNG ĐÃ SẴN SÀNG HOẠT 
 | **Kiểm tra sức khỏe hệ thống** | [http://localhost:8080/health](http://localhost:8080/health) | Trả về `{"status":"UP"}` khi toàn bộ services sẵn sàng |
 
 > **Tài khoản Quản trị viên (Admin) cho Demo:**
-> - **Tên đăng nhập**: `admin`
-> - **Mật khẩu Demo cố định**: `admin12345`
+> - Tên đăng nhập và mật khẩu được đọc từ các biến `BOOTSTRAP_ADMIN_USERNAME` và `BOOTSTRAP_ADMIN_PASSWORD` trong `.env`.
+> - Nếu `.env` được tạo từ `.env.example`, giá trị mẫu lần lượt là `admin` và `Admin12345!`.
 > - **Vị trí file lưu trữ**: File `THONG-TIN-DANG-NHAP.txt` ngay tại thư mục gốc dự án.
-> - **CẢNH BÁO BẢO MẬT**: *Mật khẩu này chỉ dùng cho mục đích trình diễn, chấm điểm và giảng dạy. Tuyệt đối không sử dụng mật khẩu này trên môi trường thật/sản xuất! Khi chạy ở chế độ tiêu chuẩn (không có cờ `-Demo`), hệ thống sẽ tự động sinh mật khẩu ngẫu nhiên có độ dài cao.*
+> - **CẢNH BÁO BẢO MẬT**: *Các giá trị mẫu chỉ dành cho phát triển cục bộ; hãy thay mật khẩu và các secret trước khi mở dịch vụ ra ngoài môi trường cục bộ.*
 > - **Phạm vi cổng mạng & Tùy chọn mạng LAN**: Khi chạy chế độ Demo (`start.bat -Demo` / `./start.sh --demo`), các cổng mặc định chỉ công bố trên `127.0.0.1` (localhost) để an toàn. Nếu cần cho phép máy khác trong mạng truy cập, hãy truyền thêm tùy chọn `-Lan` (PowerShell/CMD) hoặc `--lan` (Bash).
-> - **Trang công khai cho khách (QR Code)**: Giao diện web hiện tại cung cấp Bảng điều khiển Quản trị viên (Admin Dashboard) cho quản lý POI, nội dung và tác vụ thuyết minh. Hệ thống **chưa đóng gói trang web công khai riêng dành cho khách quét mã QR** trong UI này; toàn bộ API khách tham quan (`/api/v1/client/**`) đã hoàn thiện và sẵn sàng để ứng dụng di động hoặc bên thứ ba kết nối.
+> - **Trang công khai cho khách (QR Code)**: Source web có giao diện VisitorApp dành cho khách tham quan, được build cùng giao diện quản trị và phục vụ qua Nginx. Khách có thể tìm POI, dùng mã QR, đọc phụ đề và nghe audio theo ngôn ngữ đã phát hành. Source hiện không có ứng dụng mobile native; API khách tham quan (`/api/v1/client/**`) cũng có thể được client khác sử dụng.
 
 > **LƯU Ý VỀ ÂM THANH THUYẾT MINH & NHÀ CUNG CẤP (PROVIDER):**
 > - **Chế độ Mock (Mặc định khi demo offline / test)**: Hệ thống phát **TIẾNG BÍP** (synthetic beep 440Hz 1 giây trung tính, không phải giọng nói người). Điều này giúp trình diễn trọn vẹn quy trình tạo tác vụ, nghe thử và tải file âm thanh mp3 ổn định 100% mà không tốn cước và không phụ thuộc kết nối Internet bên ngoài.
@@ -190,7 +190,7 @@ Sau khi hệ thống khởi động thành công:
 
 > **Tài khoản khởi tạo mặc định:**
 > - Tên đăng nhập: `admin`
-> - Mật khẩu khởi tạo: Được định nghĩa trong biến `BOOTSTRAP_ADMIN_PASSWORD` tại file `.env` (tự động sinh ngẫu nhiên khi chạy script lần đầu, hoặc do người vận hành chỉ định).
+> - Mật khẩu khởi tạo được đọc từ biến `BOOTSTRAP_ADMIN_PASSWORD` trong `.env`; nếu file được tạo từ `.env.example` thì giá trị mẫu là `Admin12345!`. Thay đổi giá trị mẫu trước khi triển khai môi trường thật.
 
 ---
 
