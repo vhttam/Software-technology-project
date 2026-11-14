@@ -90,11 +90,15 @@ foreach ($service in $commands) {
     $directory = Join-Path $repoRoot $service.name
     $jar = Join-Path $directory "target/$($service.name)-1.0.0-SNAPSHOT.jar"
     $wrapper = Join-Path $directory 'mvnw.cmd'
+    $localMaven = Join-Path $repoRoot '.tools\apache-maven-3.9.6\bin\mvn.cmd'
     if ($Build -or !(Test-Path -LiteralPath $jar)) {
         Push-Location $directory
         try {
             if (Test-Path -LiteralPath $wrapper) {
                 & $wrapper '-DskipTests' 'package'
+            } elseif (Test-Path -LiteralPath $localMaven) {
+                $env:JAVA_HOME = 'C:\Program Files\Java\jdk-24'
+                & $localMaven '-DskipTests' 'package'
             } elseif (Get-Command mvn -ErrorAction SilentlyContinue) {
                 & mvn '-DskipTests' 'package'
             } else {

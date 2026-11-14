@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.cnpm.content.config.LanguageRegistry;
 import vn.edu.cnpm.content.service.ContentService;
+import vn.edu.cnpm.content.service.ListeningEventService;
 import vn.edu.cnpm.content.service.PresenceService;
 import vn.edu.cnpm.content.service.QrCodeGeneratorService;
 
@@ -23,11 +24,14 @@ public class ContentController {
     private final ContentService content;
     private final PresenceService presence;
     private final QrCodeGeneratorService qrGenerator;
+    private final ListeningEventService listeningEvents;
 
-    public ContentController(ContentService content, PresenceService presence, QrCodeGeneratorService qrGenerator) {
+    public ContentController(ContentService content, PresenceService presence, QrCodeGeneratorService qrGenerator,
+                             ListeningEventService listeningEvents) {
         this.content = content;
         this.presence = presence;
         this.qrGenerator = qrGenerator;
+        this.listeningEvents = listeningEvents;
     }
 
     @GetMapping("/api/v1/languages/source")
@@ -248,6 +252,32 @@ public class ContentController {
     }
 
     // ==========================================
+    // Listening Events & Analytics APIs
+    // ==========================================
+    @PostMapping({"/api/v1/client/listening-events", "/internal/client/listening-events"})
+    public ResponseEntity<ApiEnvelope<Map<String, Object>>> recordListeningEvent(@Valid @RequestBody ListeningEventRequest body) {
+        Map<String, Object> res = listeningEvents.recordEvent(
+                body.visitorId(),
+                body.poiId(),
+                body.contentId(),
+                body.version(),
+                body.lang(),
+                body.audioId(),
+                body.eventType(),
+                body.listenedSeconds(),
+                body.durationSeconds()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiEnvelope.success(res));
+    }
+
+    @GetMapping("/api/v1/analytics/listening")
+    public ApiEnvelope<Map<String, Object>> getListeningAnalytics(
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
+        return ApiEnvelope.success(listeningEvents.getListeningAnalytics(from, to));
+    }
+
+    // ==========================================
     // Request Records
     // ==========================================
     public record PoiRequest(
@@ -282,4 +312,16 @@ public class ContentController {
     public record TargetRequest(String lang, String voiceId) {}
 
     public record HeartbeatRequest(String clientId, String visitorId, Boolean isListening, String poiId, String lang, Boolean leave) {}
+
+    public record ListeningEventRequest(
+            @NotBlank @Size(max = 64) String visitorId,
+            @NotBlank @Size(max = 36) String poiId,
+            @Size(max = 36) String contentId,
+            Integer version,
+            @NotBlank @Size(max = 10) String lang,
+            @Size(max = 36) String audioId,
+            @NotBlank @Size(max = 20) String eventType,
+            Integer listenedSeconds,
+            Integer durationSeconds
+    ) {}
 }

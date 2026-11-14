@@ -108,6 +108,22 @@ export const contentApi = {
       `/api/v1/client/pois/${encodeURIComponent(poiId)}/narrations/${encodeURIComponent(lang)}`
     );
   },
+
+  getListeningAnalytics(from?: string, to?: string): Promise<import('./types').ListeningAnalyticsResponseData> {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return apiClient<import('./types').ListeningAnalyticsResponseData>(`/api/v1/analytics/listening${qs}`);
+  },
+
+  sendListeningEvent(body: import('./types').SendListeningEventPayload): Promise<{ status: string }> {
+    return apiClient<{ status: string }>('/api/v1/client/listening-events', {
+      method: 'POST',
+      body,
+      auth: false,
+    });
+  },
 };
 
 

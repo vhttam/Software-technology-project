@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { Spinner } from '../components/Spinner';
 import { PageHeader } from '../components/PageHeader';
+import { ListeningAnalyticsResponseData } from '../api/types';
 
 interface OverviewStats {
   totalPois: number;
@@ -26,21 +27,31 @@ export const OverviewPage: React.FC = () => {
     disabledUsers: null,
     activeVisitors: 1,
   });
+  const [listeningData, setListeningData] = useState<ListeningAnalyticsResponseData | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
 
   const loadMetrics = async () => {
     setLoading(true);
+    setAnalyticsLoading(true);
     setError(null);
     try {
-      const [poisRes, contentsRes, presenceRes] = await Promise.all([
+      const [poisRes, contentsRes, presenceRes, analyticsRes] = await Promise.all([
         contentApi.listPois(1, 1).catch(() => ({ totalItems: 0 })),
         contentApi.listContents(1, 1).catch(() => ({ totalItems: 0 })),
         fetch('/api/v1/client/presence/count')
           .then((r) => r.json())
           .then((j) => (j && j.data && typeof j.data.activeVisitors === 'number' ? j.data.activeVisitors : 0))
           .catch(() => 0),
+        contentApi.getListeningAnalytics().catch((err) => {
+          console.warn('Failed to load listening analytics:', err);
+          return null;
+        }),
       ]);
+
+      setListeningData(analyticsRes);
+      setAnalyticsLoading(false);
 
       let totalUsers: number | null = null;
       let lockedUsers: number | null = null;
@@ -231,46 +242,75 @@ export const OverviewPage: React.FC = () => {
                 <span style={{ fontSize: '11px', background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '12px', fontWeight: 600 }}>Thống kê tháng</span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: '16px', flexWrap: 'wrap' }}>
-                {/* SVG Donut Chart */}
-                <div style={{ position: 'relative', width: '150px', height: '150px' }}>
-                  <svg width="150" height="150" viewBox="0 0 42 42">
-                    <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e2e8f0" strokeWidth="6"></circle>
-                    {/* Tiếng Việt: 42% */}
-                    <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#0284c7" strokeWidth="6" strokeDasharray="42 58" strokeDashoffset="25"></circle>
-                    {/* Tiếng Anh: 32% */}
-                    <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#10b981" strokeWidth="6" strokeDasharray="32 68" strokeDashoffset="83"></circle>
-                    {/* Tiếng Pháp: 14% */}
-                    <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#f59e0b" strokeWidth="6" strokeDasharray="14 86" strokeDashoffset="51"></circle>
-                    {/* Khác (Hàn, Nhật, Trung): 12% */}
-                    <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#8b5cf6" strokeWidth="6" strokeDasharray="12 88" strokeDashoffset="37"></circle>
-                  </svg>
-                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#0f172a' }}>100%</div>
-                    <div style={{ fontSize: '10px', color: '#64748b' }}>Đa ngôn ngữ</div>
-                  </div>
+              {analyticsLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '150px' }}>
+                  <Spinner />
                 </div>
+              ) : !listeningData || !listeningData.languageShares || listeningData.languageShares.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 10px', color: '#64748b', fontSize: '13px' }}>
+                  Chưa có dữ liệu
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: '16px', flexWrap: 'wrap' }}>
+                  {/* SVG Donut Chart */}
+                  <div style={{ position: 'relative', width: '150px', height: '150px' }}>
+                    <svg width="150" height="150" viewBox="0 0 42 42">
+                      <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e2e8f0" strokeWidth="6"></circle>
+                      {(() => {
+                        const colors = ['#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'];
+                        let accumulated = 0;
+                        return listeningData.languageShares.map((item, idx) => {
+                          const strokeDash = `${item.percentage} ${100 - item.percentage}`;
+                          // SVG circle offset formula: 25 is 12 o'clock in SVG dashoffset
+                          const strokeOffset = (100 - accumulated + 25) % 100;
+                          accumulated += item.percentage;
+                          return (
+                            <circle
+                              key={item.lang}
+                              cx="21"
+                              cy="21"
+                              r="15.91549430918954"
+                              fill="transparent"
+                              stroke={colors[idx % colors.length]}
+                              strokeWidth="6"
+                              strokeDasharray={strokeDash}
+                              strokeDashoffset={strokeOffset}
+                            ></circle>
+                          );
+                        });
+                      })()}
+                    </svg>
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                      <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#0f172a' }}>100%</div>
+                      <div style={{ fontSize: '10px', color: '#64748b' }}>Đa ngôn ngữ</div>
+                    </div>
+                  </div>
 
-                {/* Chú thích Donut */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#0284c7' }}></span>
-                    <span style={{ color: '#334155', fontWeight: 500 }}>Tiếng Việt (vi): <strong>42%</strong></span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-                    <span style={{ color: '#334155', fontWeight: 500 }}>Tiếng Anh (en): <strong>32%</strong></span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b' }}></span>
-                    <span style={{ color: '#334155', fontWeight: 500 }}>Tiếng Pháp (fr): <strong>14%</strong></span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#8b5cf6' }}></span>
-                    <span style={{ color: '#334155', fontWeight: 500 }}>Khác (zh, ja, ko): <strong>12%</strong></span>
+                  {/* Chú thích Donut */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+                    {(() => {
+                      const colors = ['#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'];
+                      const langNames: Record<string, string> = {
+                        vi: 'Tiếng Việt',
+                        en: 'Tiếng Anh',
+                        fr: 'Tiếng Pháp',
+                        ja: 'Tiếng Nhật',
+                        ko: 'Tiếng Hàn',
+                        zh: 'Tiếng Trung',
+                      };
+                      return listeningData.languageShares.map((item, idx) => {
+                        const name = langNames[item.lang.toLowerCase()] || item.lang.toUpperCase();
+                        return (
+                          <div key={item.lang} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: colors[idx % colors.length] }}></span>
+                            <span style={{ color: '#334155', fontWeight: 500 }}>{name} ({item.lang}): <strong>{item.percentage}%</strong></span>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* 2. Biểu đồ cột: Lưu lượng khách theo khung giờ */}
@@ -283,38 +323,57 @@ export const OverviewPage: React.FC = () => {
                 <span style={{ fontSize: '11px', background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: '12px', fontWeight: 600 }}>Hôm nay</span>
               </div>
 
-              {/* Bar Chart Visualization */}
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '130px', padding: '10px 10px 0 10px', borderBottom: '1px solid #e2e8f0', gap: '8px' }}>
-                {[
-                  { time: '08h', height: '35%', count: 45 },
-                  { time: '10h', height: '85%', count: 120, highlight: true },
-                  { time: '12h', height: '40%', count: 52 },
-                  { time: '14h', height: '95%', count: 140, highlight: true },
-                  { time: '16h', height: '75%', count: 98 },
-                  { time: '18h', height: '30%', count: 38 },
-                ].map((bar, idx) => (
-                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end' }}>
-                    <span style={{ fontSize: '10px', color: bar.highlight ? '#059669' : '#64748b', fontWeight: bar.highlight ? 700 : 500, marginBottom: '4px' }}>
-                      {bar.count}
-                    </span>
-                    <div
-                      style={{
-                        width: '100%',
-                        maxWidth: '28px',
-                        height: bar.height,
-                        backgroundColor: bar.highlight ? '#10b981' : '#cbd5e1',
-                        borderRadius: '4px 4px 0 0',
-                        transition: 'height 0.3s ease',
-                      }}
-                    ></div>
-                    <span style={{ fontSize: '11px', color: '#475569', marginTop: '6px', fontWeight: 500 }}>{bar.time}</span>
+              {analyticsLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '130px' }}>
+                  <Spinner />
+                </div>
+              ) : !listeningData || !listeningData.hourlyDistribution || listeningData.totalEvents === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 10px', color: '#64748b', fontSize: '13px' }}>
+                  Chưa có dữ liệu
+                </div>
+              ) : (
+                <>
+                  {/* Bar Chart Visualization */}
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '130px', padding: '10px 10px 0 10px', borderBottom: '1px solid #e2e8f0', gap: '8px' }}>
+                    {(() => {
+                      const allHours = listeningData.hourlyDistribution || [];
+                      // Filter down to common working hours or hours with traffic (e.g. 08h, 10h, 12h, 14h, 16h, 18h)
+                      const sampleHours = [8, 10, 12, 14, 16, 18];
+                      const displayBars = sampleHours.map(h => {
+                        const found = allHours.find(item => item.hour === h);
+                        return found || { hour: h, label: `${h < 10 ? '0' : ''}${h}h`, count: 0, percentage: 0 };
+                      });
+                      const maxCount = Math.max(...displayBars.map(b => b.count), 1);
+                      return displayBars.map((bar, idx) => {
+                        const isHighlight = bar.count > 0 && bar.count === maxCount;
+                        const heightPct = bar.count > 0 ? Math.max(15, Math.round((bar.count * 100) / maxCount)) : 5;
+                        return (
+                          <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end' }}>
+                            <span style={{ fontSize: '10px', color: isHighlight ? '#059669' : '#64748b', fontWeight: isHighlight ? 700 : 500, marginBottom: '4px' }}>
+                              {bar.count}
+                            </span>
+                            <div
+                              style={{
+                                width: '100%',
+                                maxWidth: '28px',
+                                height: `${heightPct}%`,
+                                backgroundColor: isHighlight ? '#10b981' : '#cbd5e1',
+                                borderRadius: '4px 4px 0 0',
+                                transition: 'height 0.3s ease',
+                              }}
+                            ></div>
+                            <span style={{ fontSize: '11px', color: '#475569', marginTop: '6px', fontWeight: 500 }}>{bar.label}</span>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
-                ))}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginTop: '8px' }}>
-                <span>Giờ cao điểm: <strong>14:00 - 15:30</strong></span>
-                <span>Tỷ lệ hoàn thành bài nghe: <strong>88.4%</strong></span>
-              </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginTop: '8px' }}>
+                    <span>Giờ cao điểm: <strong>{listeningData.peakInterval || 'Chưa xác định'}</strong></span>
+                    <span>Tỷ lệ hoàn thành bài nghe: <strong>{listeningData.completionRate != null ? `${listeningData.completionRate}%` : 'Chưa có dữ liệu'}</strong></span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

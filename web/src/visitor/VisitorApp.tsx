@@ -46,6 +46,11 @@ export const VisitorApp: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [activeSentenceIndex, setActiveSentenceIndex] = useState<number>(0);
+  const [audioError, setAudioError] = useState<string | null>(null);
+
+  // Listening session event deduplication
+  const hasSentStartedRef = useRef<boolean>(false);
+  const hasSentCompletedRef = useRef<boolean>(false);
 
   // Geofence Auto-Prompt Toast
   const [geofencePromptPoi, setGeofencePromptPoi] = useState<VisitorPoi | null>(null);
@@ -453,6 +458,9 @@ export const VisitorApp: React.FC = () => {
   const loadNarration = async (poiId: string, langCode: string) => {
     setLoadingNarration(true);
     setNarrationNotice('');
+    setAudioError(null);
+    hasSentStartedRef.current = false;
+    hasSentCompletedRef.current = false;
     const langTrans = getTranslation(langCode);
     const current = pois.find((p) => p.poiId === poiId);
     const poiName = current?.poiName || current?.name || qrModalPoi?.poiName || 'Điểm tham quan';
@@ -476,6 +484,7 @@ export const VisitorApp: React.FC = () => {
             poiName: data.poiName || poiName,
             contentTitle: langTrans.multilingualNarrationSub,
             lang: langCode,
+            version: data.version,
             subtitle: data.subtitle || data.textContent,
             audioUrl: data.audioUrl || '',
           });
@@ -557,9 +566,33 @@ export const VisitorApp: React.FC = () => {
   const handleLanguageChange = (nextLang: string) => {
     setSelectedLang(nextLang);
     localStorage.setItem('visitor_language', nextLang);
+    setAudioError(null);
+    hasSentStartedRef.current = false;
+    hasSentCompletedRef.current = false;
     if (activeNarration) {
       loadNarration(activeNarration.poiId, nextLang);
     }
+  };
+
+  // Send Listening Event helper (UC14, analytics)
+  const sendListeningEvent = (eventType: 'STARTED' | 'COMPLETED', cTime = 0, dur = 0) => {
+    if (!activeNarration) return;
+    const visitorId = sessionStorage.getItem('visitor_id') || 'visitor_anon';
+    fetch('/api/v1/client/listening-events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        visitorId,
+        poiId: activeNarration.poiId,
+        version: activeNarration.version || 1,
+        lang: activeNarration.lang,
+        eventType,
+        listenedSeconds: Math.round(cTime),
+        durationSeconds: Math.round(dur),
+      }),
+    }).catch(() => {
+      // Fire-and-forget telemetry
+    });
   };
 
   // Status label
@@ -1000,23 +1033,101 @@ export const VisitorApp: React.FC = () => {
                 </div>
               </div>
 
+              {/* Audio Error Alert with Refresh Button */}
+              {audioError && (
+                <div
+                  style={{
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    marginBottom: '12px',
+                    color: '#991b1b',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '200px' }}>
+                    <span>⚠️</span>
+                    <span>{audioError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeNarration) {
+                        loadNarration(activeNarration.poiId, activeNarration.lang);
+                      }
+                    }}
+                    style={{
+                      backgroundColor: '#dc2626',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '5px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🔄 Làm mới
+                  </button>
+                </div>
+              )}
+
               {activeNarration.audioUrl ? (
                 <div className="native-audio-container">
                   <audio
                     ref={audioRef}
+                    key={activeNarration.audioUrl}
                     src={activeNarration.audioUrl}
                     controls
                     autoPlay
-                    onPlay={() => setIsPlaying(true)}
+                    onPlay={() => {
+                      setIsPlaying(true);
+                      setAudioError(null);
+                      if (!hasSentStartedRef.current) {
+                        hasSentStartedRef.current = true;
+                        sendListeningEvent('STARTED', 0, audioDuration);
+                      }
+                    }}
                     onPause={() => setIsPlaying(false)}
+                    onCanPlay={() => setAudioError(null)}
+                    onLoadedData={() => setAudioError(null)}
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.src || target.error?.code === MediaError.MEDIA_ERR_ABORTED) {
+                        return;
+                      }
+                      setAudioError(
+                        'Không thể phát tệp âm thanh (có thể chữ ký bảo mật đã hết hạn). Vui lòng bấm "Làm mới" để tải lại liên kết.'
+                      );
+                    }}
+                    onEnded={() => {
+                      setIsPlaying(false);
+                      if (!hasSentCompletedRef.current) {
+                        hasSentCompletedRef.current = true;
+                        sendListeningEvent('COMPLETED', audioDuration, audioDuration);
+                      }
+                    }}
                     onLoadedMetadata={(e) => {
-                      setAudioDuration((e.target as HTMLAudioElement).duration || 0);
+                      const dur = (e.target as HTMLAudioElement).duration || 0;
+                      setAudioDuration(dur);
                     }}
                     onTimeUpdate={(e) => {
                       const audio = e.target as HTMLAudioElement;
                       const cTime = audio.currentTime;
                       const dur = audio.duration || audioDuration;
                       setCurrentTime(cTime);
+
+                      // Check 90% threshold for completion
+                      if (dur > 0 && cTime >= 0.9 * dur && !hasSentCompletedRef.current) {
+                        hasSentCompletedRef.current = true;
+                        sendListeningEvent('COMPLETED', cTime, dur);
+                      }
 
                       if (dur > 0 && activeNarration?.subtitle) {
                         const raw = activeNarration.subtitle;

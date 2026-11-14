@@ -347,4 +347,47 @@ export interface HealthResponseData {
   status: 'UP' | string;
 }
 
+// ============================================================================
+// §Listening Analytics & Events
+// ============================================================================
+
+export interface LanguageShareItem {
+  lang: string;
+  count: number;
+  percentage: number;
+}
+
+export interface HourlyDistributionItem {
+  hour: number;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+export interface ListeningAnalyticsResponseData {
+  totalEvents: number;
+  startedCount: number;
+  completedCount: number;
+  completionRate: number;
+  languageShares: LanguageShareItem[];
+  hourlyDistribution: HourlyDistributionItem[];
+  peakInterval: string;
+  peakPlays: number;
+  from?: string;
+  to?: string;
+}
+
+export interface SendListeningEventPayload {
+  visitorId: string;
+  poiId: string;
+  contentId?: string;
+  version?: number;
+  lang: string;
+  audioId?: string;
+  eventType: 'STARTED' | 'COMPLETED';
+  listenedSeconds?: number;
+  durationSeconds?: number;
+}
+
+
 

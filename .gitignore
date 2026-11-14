@@ -16,3 +16,5 @@ tts-service/data/
 .vite/
 web/.vite/
 .vs/
+.tools/
+

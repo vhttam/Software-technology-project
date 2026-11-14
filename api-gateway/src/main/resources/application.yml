@@ -218,6 +218,16 @@ gateway:
       path: /api/v1/client/pois/{poiId}/narrations/{lang}
       target: LOCAL
       authentication: PUBLIC
+    - id: visitor-listening-events
+      method: POST
+      path: /api/v1/client/listening-events
+      target: CONTENT
+      authentication: PUBLIC
+    - id: admin-listening-analytics
+      method: GET
+      path: /api/v1/analytics/listening
+      target: CONTENT
+      authentication: CONTENT_ADMIN
     - id: narration-progress-callback
       method: POST
       path: /internal/callbacks/job-progress

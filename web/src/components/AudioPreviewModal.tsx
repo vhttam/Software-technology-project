@@ -97,6 +97,7 @@ export const AudioPreviewModal: React.FC<AudioPreviewModalProps> = ({
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
+    setAudioError(null);
   }, [selectedLang]);
 
   // 1. Tải danh sách ngôn ngữ thuyết minh đã xuất bản của POI
@@ -414,8 +415,18 @@ export const AudioPreviewModal: React.FC<AudioPreviewModalProps> = ({
                       controls
                       src={audioSrc || detail.audioUrl}
                       style={{ width: '100%', outline: 'none', marginBottom: 8 }}
-                      onPlay={handleAudioPlayAttempt}
-                      onError={() => {
+                      onPlay={() => {
+                        setAudioError(null);
+                        handleAudioPlayAttempt();
+                      }}
+                      onCanPlay={() => setAudioError(null)}
+                      onLoadedData={() => setAudioError(null)}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        // Ignore abort/empty errors caused by changing src or switching language
+                        if (!target.src || target.error?.code === MediaError.MEDIA_ERR_ABORTED) {
+                          return;
+                        }
                         setAudioError(
                           'Không thể phát tệp âm thanh (có thể chữ ký bảo mật đã hết hạn). Vui lòng bấm "Làm mới" để tải lại liên kết.'
                         );

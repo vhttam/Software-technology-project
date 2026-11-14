@@ -4,6 +4,10 @@ Khớp với tài liệu Use Cases v3.0 (docs/source/UC-v3.0.docx). Tài liệu 
 
 ## Lịch sử thay đổi V2.0 (23-10-2026)
 
+- **Sự kiện nghe thuyết minh & Phân tích số liệu thực (Listening Telemetry & Analytics - UC14, Dashboard)**:
+  - Bổ sung bảng cơ sở dữ liệu `listening_events` (Content Service Flyway `V5__listening_events.sql`): `id`, `visitor_id`, `poi_id`, `content_id`, `version`, `lang`, `audio_id`, `event_type` (`STARTED`, `COMPLETED`), `listened_seconds`, `duration_seconds`, `occurred_at` (UTC). Đánh chỉ mục trên `occurred_at` và `lang`.
+  - Bổ sung endpoint công khai qua Gateway: `POST /api/v1/client/listening-events` ghi nhận sự kiện nghe (STARTED khi bắt đầu phát, COMPLETED khi nghe >= 90% hoặc kết thúc audio) kèm xác thực đầu vào và chống spam.
+  - Bổ sung endpoint quản trị: `GET /api/v1/analytics/listening` (cần quyền `CONTENT_ADMIN` hoặc `SUPER_ADMIN`) trả tỷ lệ theo ngôn ngữ (`languageShares`), phân bổ theo giờ (`hourlyDistribution` theo múi giờ Asia/Ho_Chi_Minh), khung giờ cao điểm 90 phút (`peakInterval`), và tỷ lệ hoàn thành (`completionRate` = COMPLETED / STARTED).
 - **Theo dõi lượng khách truy cập thời gian thực (Presence Tracking - UC10, BR-19, §4)**:
   - Chuẩn hóa cơ chế tính toán sang Redis Sorted Set (`ZSET`) với cửa sổ trượt (sliding window) chuẩn 120 giây (loại bỏ cơ chế key đơn lẻ TTL 45 giây mâu thuẫn).
   - Bổ sung endpoint công khai `POST /api/v1/client/presence/heartbeat` (không cần auth) định kỳ mỗi 30 giây; request body hỗ trợ `clientId` (bắt buộc), `isListening`, `poiId`, `lang` (tùy chọn) để theo dõi số người nghe audio.
